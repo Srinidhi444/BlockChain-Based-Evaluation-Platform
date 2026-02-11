@@ -1,0 +1,101 @@
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { verifyToken, extractTokenFromCookies, extractTokenFromHeader } from '@/lib/utils/auth';
+import { UserRole } from '@/lib/types';
+
+// Define public routes that don't require authentication
+const PUBLIC_ROUTES = [
+  '/',
+  '/login'
+];
+
+// Define role-based route prefixes
+const STUDENT_ROUTES = ['/dashboard', '/upload', '/results'];
+const TEACHER_ROUTES = ['/dashboard', '/create-test', '/evaluate'];
+const ADMIN_ROUTES = ['/admin'];
+
+export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  
+  // Allow public routes
+  if (PUBLIC_ROUTES.some(route => pathname === route)) {
+    return NextResponse.next();
+  }
+  
+  // Allow API routes to handle their own auth
+  if (pathname.startsWith('/api/')) {
+    return NextResponse.next();
+  }
+  
+  // Extract token from cookies or Authorization header
+  const cookieToken = extractTokenFromCookies(request.headers.get('cookie'));
+  const headerToken = extractTokenFromHeader(request.headers.get('authorization'));
+  const token = cookieToken || headerToken;
+  
+  // No token found - redirect to login
+  if (!token) {
+    const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('redirect', pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+  
+  // Verify token
+  const user = verifyToken(token);
+  
+  if (!user) {
+    // Invalid token - clear cookie and redirect to login
+    const response = NextResponse.redirect(new URL('/login', request.url));
+    response.cookies.delete('token');
+    return response;
+  }
+  
+  // Check role-based access
+  const isStudentRoute = STUDENT_ROUTES.some(route => pathname.startsWith(route));
+  const isTeacherRoute = TEACHER_ROUTES.some(route => pathname.startsWith(route));
+  const isAdminRoute = ADMIN_ROUTES.some(route => pathname.startsWith(route));
+  
+  // Student trying to access teacher/admin routes
+  if (user.role === UserRole.STUDENT) {
+    if (isTeacherRoute || isAdminRoute) {
+      return NextResponse.redirect(new URL('/dashboard', request.url));
+    }
+  }
+  
+  // Teacher trying to access student/admin routes
+  if (user.role === UserRole.TEACHER) {
+    if (isStudentRoute && !isTeacherRoute) {
+      return NextResponse.redirect(new URL('/dashboard', request.url));
+    }
+    if (isAdminRoute) {
+      return NextResponse.redirect(new URL('/dashboard', request.url));
+    }
+  }
+  
+  // Admin has access to all routes
+  
+  // Add user info to request headers for use in pages/API routes
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-user-id', user.userId);
+  requestHeaders.set('x-user-email', user.email);
+  requestHeaders.set('x-user-role', user.role);
+  
+  return NextResponse.next({
+    request: {
+      headers: requestHeaders
+    }
+  });
+}
+
+// Configure which routes use this middleware
+export const config = {
+  matcher: [
+    /*
+     * Match all request paths except:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public files (public folder)
+     */
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+  ]
+};

@@ -27,6 +27,8 @@ export function generateFileHashFromBase64(base64String: string): string {
  * Generate hash from evaluation data
  * Used to store immutable evaluation results on blockchain
  */
+import crypto from "crypto";
+
 export function generateEvaluationHash(evaluationData: {
   submissionId: string;
   teacherId: string;
@@ -34,17 +36,31 @@ export function generateEvaluationHash(evaluationData: {
   totalMarksObtained: number;
   evaluatedAt: Date;
 }): string {
-  const dataString = JSON.stringify({
+
+  // Sort questionMarks to ensure deterministic order
+  const sortedQuestionMarks = [...evaluationData.questionMarks].sort(
+    (a, b) => a.questionNumber - b.questionNumber
+  );
+
+  const canonicalData = {
     submissionId: evaluationData.submissionId,
     teacherId: evaluationData.teacherId,
-    questionMarks: evaluationData.questionMarks,
+    questionMarks: sortedQuestionMarks,
     totalMarksObtained: evaluationData.totalMarksObtained,
-    evaluatedAt: evaluationData.evaluatedAt.toISOString()
-  });
-  
-  const hash = CryptoJS.SHA256(dataString);
-  return hash.toString(CryptoJS.enc.Hex);
+    evaluatedAt: evaluationData.evaluatedAt
+  ? evaluationData.evaluatedAt.toISOString()
+  : null
+
+  };
+
+  const dataString = JSON.stringify(canonicalData);
+
+  return crypto
+    .createHash("sha256")
+    .update(dataString)
+    .digest("hex");
 }
+
 
 /**
  * Generate hash for test (question paper)

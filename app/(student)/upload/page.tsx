@@ -25,6 +25,12 @@ export default function UploadPage() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [blockchainInfo, setBlockchainInfo] = useState<{
+  submissionId: string;
+  blockchainTxHash: string;
+  fileHash: string;
+} | null>(null);
+
 
   useEffect(() => {
     fetchAvailableTests();
@@ -94,7 +100,8 @@ export default function UploadPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    setBlockchainInfo(null);
+
     if (!selectedTest) {
       setError('Please select a test');
       return;
@@ -128,14 +135,23 @@ export default function UploadPage() {
         body: formData,
         // DON'T set Content-Type - browser sets it automatically with boundary
       });
-      
       const data = await response.json();
-      
       if (!response.ok) {
-        throw new Error(data.error || 'Upload failed');
-      }
-      
-      setSuccess('✅ Answer sheet uploaded successfully!');
+        console.error('Upload failed full response:', data);
+
+          throw new Error(data.error || 'Upload failed' );
+        }
+
+      const { submissionId, blockchainTxHash, fileHash } = data.data;
+
+        setBlockchainInfo({
+          submissionId,
+          blockchainTxHash,
+          fileHash
+        });
+
+        setSuccess('✅ Submission recorded on blockchain successfully!');
+
       
       // Reset form
       setFile(null);
@@ -145,10 +161,7 @@ export default function UploadPage() {
       // Refresh tests list
       fetchAvailableTests();
       
-      // Redirect to results page after 2 seconds
-      setTimeout(() => {
-        router.push('/results');
-      }, 2000);
+    
       
     } catch (err: any) {
       console.error('Upload error:', err);
@@ -206,6 +219,39 @@ export default function UploadPage() {
               <p className="text-success-700 text-sm font-medium">{success}</p>
             </div>
           )}
+           {blockchainInfo && (
+                <div className="mb-6 p-4 bg-secondary-50 border border-secondary-200 rounded-lg">
+                  <h4 className="font-semibold text-secondary-900 mb-2">
+                    🔗 Blockchain Verification Details
+                  </h4>
+
+                  <div className="text-sm space-y-2">
+                    <p>
+                      <span className="font-medium">Submission ID:</span>
+                      <br />
+                      {blockchainInfo.submissionId}
+                    </p>
+
+                    <p>
+                      <span className="font-medium">File Hash (SHA-256):</span>
+                      <br />
+                      <span className="break-all">{blockchainInfo.fileHash}</span>
+                    </p>
+
+                    <p>
+                      <span className="font-medium">Transaction Hash:</span>
+                      <br />
+                      <a
+                        href={`https://sepolia.etherscan.io/tx/${blockchainInfo.blockchainTxHash}`}
+                        target="_blank"
+                        className="text-primary-600 underline break-all"
+                      >
+                        {blockchainInfo.blockchainTxHash}
+                      </a>
+                    </p>
+                  </div>
+                </div>
+              )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Select Test */}
@@ -367,6 +413,9 @@ export default function UploadPage() {
           </form>
         </div>
       </div>
+     
+
     </div>
+    
   );
 }

@@ -8,6 +8,7 @@ import { getUserFromHeaders, isTeacher } from '@/lib/utils/auth';
 import { validateRequestBody, createEvaluationSchema } from '@/lib/utils/validation';
 import { generateEvaluationId } from '@/lib/utils/idGenerator';
 import { generateEvaluationHash } from '@/lib/utils/hash';
+import { commitEvaluationToBlockchain } from '@/lib/blockchain/examContract' ;
 
 export async function POST(request: NextRequest) {
   try {
@@ -44,10 +45,11 @@ export async function POST(request: NextRequest) {
         { status: 404 }
       );
     }
+  
     
     // Find submission
     const submission = await Submission.findOne({ submissionId });
-    
+    console.log("this is the db submission id ",submission);
     if (!submission) {
       return NextResponse.json(
         { error: 'Submission not found' },
@@ -119,7 +121,7 @@ export async function POST(request: NextRequest) {
       totalMarksObtained,
       evaluatedAt: isDraft ? null : new Date()
     };
-    const resultHash = generateEvaluationHash(evaluationData);
+    const evaluationHash = generateEvaluationHash(evaluationData);
     
     // Check if draft exists (look for any evaluation - draft or not)
     const existingEvaluation = await Evaluation.findOne({ submissionId });
@@ -127,65 +129,81 @@ export async function POST(request: NextRequest) {
     let evaluation;
     
     if (existingEvaluation) {
-      // Update existing evaluation
-      existingEvaluation.questionMarks = questionMarks;
-      existingEvaluation.totalMarksObtained = totalMarksObtained;
-      existingEvaluation.totalMarks = totalMarks;
-      existingEvaluation.percentage = percentage;
-      existingEvaluation.remarks = remarks || '';
-      existingEvaluation.isDraft = isDraft;
-      existingEvaluation.resultHash = resultHash;
-      
-      if (!isDraft) {
-        existingEvaluation.evaluatedAt = new Date();
-      }
-      
-      evaluation = await existingEvaluation.save();
-      
-      console.log('✅ Updated existing evaluation:', evaluation.evaluationId);
-    } else {
-      // Generate evaluation ID
-      const evaluationId = generateEvaluationId(submissionId, currentUser.userId);
-      
-      // Create new evaluation
-      evaluation = await Evaluation.create({
-        evaluationId,
-        submissionId,
-        testId: submission.testId,
-        teacherId: currentUser.userId,
-        teacherName: teacher.name,
-        questionMarks,
-        totalMarksObtained,
-        totalMarks,
-        percentage,
-        remarks: remarks || '',
-        isDraft,
-        evaluatedAt: isDraft ? null : new Date(),
-        resultHash,
-        blockchainVerified: false,
-      });
-      
-      console.log('✅ Created new evaluation:', evaluation.evaluationId);
-    }
-    
-    // Update submission status based on evaluation state
-    if (isDraft) {
-      // Draft saved - mark as under evaluation
-      if (submission.status === 'uploaded') {
-        submission.status = 'under_evaluation';
-        await submission.save();
-        console.log('✅ Submission status updated to: under_evaluation');
-      }
-    } else {
-      // Finalized - mark as evaluated
-      submission.status = 'evaluated';
-      await submission.save();
-      console.log('✅ Submission status updated to: evaluated');
-      
-      // TODO: In Phase 2, store result hash on blockchain
-      // const blockchainTxHash = await storeOnBlockchain(resultHash);
-      // await evaluation.markBlockchainVerified(blockchainTxHash);
-    }
+
+  // Update existing evaluation
+  existingEvaluation.questionMarks = questionMarks;
+  existingEvaluation.totalMarksObtained = totalMarksObtained;
+  existingEvaluation.totalMarks = totalMarks;
+  existingEvaluation.percentage = percentage;
+  existingEvaluation.remarks = remarks || '';
+  existingEvaluation.isDraft = isDraft;
+  existingEvaluation.evaluationHash = evaluationHash;
+
+  if (!isDraft) {
+    existingEvaluation.evaluatedAt = new Date();
+
+    // 🔐 Commit to blockchain FIRST
+    const blockchainTxHash = await commitEvaluationToBlockchain(
+      test.blockchainExamId,
+      submissionId,
+      evaluationHash
+    );
+
+    existingEvaluation.blockchainTxHash = blockchainTxHash;
+    existingEvaluation.blockchainVerified = true;
+
+    submission.status = 'evaluated';
+    await submission.save();
+  }
+
+  evaluation = await existingEvaluation.save();
+
+} else {
+
+  const evaluationId = generateEvaluationId(submissionId, currentUser.userId);
+
+  evaluation = new Evaluation({
+    evaluationId,
+    submissionId,
+    testId: submission.testId,
+    teacherId: currentUser.userId,
+    teacherName: teacher.name,
+    questionMarks,
+    totalMarksObtained,
+    totalMarks,
+    percentage,
+    remarks: remarks || '',
+    isDraft,
+    evaluatedAt: isDraft ? null : new Date(),
+    evaluationHash,
+    blockchainVerified: false,
+  });
+
+  if (!isDraft) {
+
+    // 🔐 Commit to blockchain FIRST
+    const blockchainTxHash = await commitEvaluationToBlockchain(
+      test.blockchainExamId,
+      submissionId,
+      evaluationHash
+    );
+
+    evaluation.blockchainTxHash = blockchainTxHash;
+    evaluation.blockchainVerified = true;
+
+    submission.status = 'evaluated';
+    await submission.save();
+  }
+
+  await evaluation.save();
+}
+if (isDraft) {
+  if (submission.status === 'uploaded') {
+    submission.status = 'under_evaluation';
+    await submission.save();
+  }
+}
+
     
     return NextResponse.json(
       {
@@ -199,7 +217,7 @@ export async function POST(request: NextRequest) {
             totalMarks: evaluation.totalMarks,
             percentage: evaluation.percentage,
             isDraft: evaluation.isDraft,
-            resultHash: evaluation.resultHash,
+            evaluationHash: evaluation.evaluationHash,
             questionMarks: evaluation.questionMarks,
             remarks: evaluation.remarks,
           },

@@ -1,5 +1,6 @@
 import mongoose, { Schema, Model } from 'mongoose';
 import { ISubmission } from '@/lib/types';
+import crypto from 'crypto';
 
 const SubmissionSchema = new Schema<ISubmission>(
   {
@@ -9,6 +10,11 @@ const SubmissionSchema = new Schema<ISubmission>(
       unique: true,
       trim: true,
       uppercase: true
+    },
+    blockchainExamId: {
+      type: Number,
+      required: true,
+      index: true
     },
     testId: {
       type: String,
@@ -24,11 +30,6 @@ const SubmissionSchema = new Schema<ISubmission>(
       uppercase: true,
       match: [/^ST\d{7}$/, 'Invalid Student ID format'],
       index: true
-    },
-    studentName: {
-      type: String,
-      required: [true, 'Student name is required'],
-      trim: true
     },
     department: {
       type: String,
@@ -100,10 +101,6 @@ const SubmissionSchema = new Schema<ISubmission>(
       trim: true,
       default: null
     },
-    blockchainVerified: {
-      type: Boolean,
-      default: false
-    }
   },
   {
     timestamps: true,
@@ -118,12 +115,13 @@ SubmissionSchema.index({ status: 1, uploadedAt: -1 });
 SubmissionSchema.index({ studentId: 1, uploadedAt: -1 });
 
 // Virtual for anonymized student identifier (for blind evaluation)
-SubmissionSchema.virtual('anonymousId').get(function(this: ISubmission) {
-  // Creates anonymous ID like: SUB_ANON_1234567
-  const hashCode = this.submissionId.split('').reduce((acc, char) => {
-    return acc + char.charCodeAt(0);
-  }, 0);
-  return `SUB_ANON_${hashCode % 10000000}`;
+SubmissionSchema.virtual('anonymousId').get(function() {
+  return 'SUB_' + crypto
+    .createHash('sha256')
+    .update(this.submissionId)
+    .digest('hex')
+    .slice(0, 8)
+    .toUpperCase();
 });
 
 // Virtual to check if submission is recent (within 7 days)

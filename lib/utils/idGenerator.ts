@@ -3,6 +3,8 @@
  * Generates unique IDs for Tests, Submissions, Evaluations, and Users
  */
 
+import { ethers } from "ethers";
+
 /**
  * Generate Test ID
  * Format: TEST_DEPT_YEAR_TIMESTAMP
@@ -33,8 +35,11 @@ export function generateSubmissionId(
   studentId: string,
   testId: string
 ): string {
-  const timestamp = Date.now();
-  return `SUB_${studentId}_${testId}_${timestamp}`;
+  const timestamp = Date.now().toString();
+
+  const raw = `${studentId}_${testId}_${timestamp}`;
+
+  return ethers.keccak256(ethers.toUtf8Bytes(raw));
 }
 
 /**

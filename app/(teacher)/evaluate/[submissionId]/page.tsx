@@ -170,10 +170,12 @@ export default function EvaluateSubmissionPage() {
   const handleFinalize = async () => {
     try {
       // Validate all questions are marked
-      if (questionMarks.some(q => q.marksObtained === undefined || q.marksObtained === null)) {
-        setError('Please mark all questions before finalizing');
-        return;
-      }
+    if (questionMarks.some(q => q.marksObtained < 0 || q.marksObtained > q.maxMarks)) {
+      setError('Invalid marks entered');
+      return;
+    }
+
+
       
       const confirmed = confirm(
         `Are you sure you want to finalize this evaluation?\n\n` +
@@ -232,6 +234,7 @@ export default function EvaluateSubmissionPage() {
     return submission.fileType === 'application/pdf' || 
            submission.answerSheetUrl.includes('data:application/pdf');
   };
+  
 
   // Open file in new window
   const openInNewWindow = () => {
@@ -523,7 +526,7 @@ export default function EvaluateSubmissionPage() {
                           min="0"
                           max={qm.maxMarks}
                           step="0.5"
-                          value={qm.marksObtained || ''}
+                          value={qm.marksObtained}
                           onChange={(e) => handleMarksChange(qm.questionNumber, e.target.value)}
                           disabled={isReadOnly}
                           placeholder="0"

@@ -1,6 +1,6 @@
 import mongoose, { Schema, Model } from 'mongoose';
 import { ITest, IQuestion } from '@/lib/types';
-
+import crypto from 'crypto';
 const QuestionSchema = new Schema<IQuestion>(
   {
     questionNumber: {
@@ -99,6 +99,11 @@ const TestSchema = new Schema<ITest>(
     examDate: {
       type: Date,
       required: [true, 'Exam date is required']
+    },
+    blockchainExamId: {
+      type: Number,
+      unique: true,
+      default: 0,
     }
   },
   {
@@ -106,6 +111,7 @@ const TestSchema = new Schema<ITest>(
     collection: 'tests'
   }
 );
+
 
 // Indexes for efficient queries
 TestSchema.index({ testId: 1 });
@@ -124,6 +130,22 @@ TestSchema.virtual('isUpcoming').get(function(this: ITest) {
 TestSchema.virtual('isExpired').get(function(this: ITest) {
   const daysSinceExam = (Date.now() - new Date(this.examDate).getTime()) / (1000 * 60 * 60 * 24);
   return daysSinceExam > 30; // Tests expire after 30 days
+});
+TestSchema.pre('save', function (next) {
+  // Generate blockchainExamId only if not set or still 0
+  if (!this.blockchainExamId || this.blockchainExamId === 0) {
+    const hash = crypto
+      .createHash('sha256')
+      .update(this._id.toString())
+      .digest('hex');
+
+    const blockchainExamId =
+      parseInt(hash.slice(0, 12), 16) % Number.MAX_SAFE_INTEGER;
+
+    this.blockchainExamId = blockchainExamId;
+  }
+
+  next();
 });
 
 // Pre-save hook to validate total marks match sum of question marks

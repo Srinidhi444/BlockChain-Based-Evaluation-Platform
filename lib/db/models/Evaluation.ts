@@ -112,21 +112,27 @@ const EvaluationSchema = new Schema<IEvaluation>(
       type: Date,
       default: null
     },
-    resultHash: {
+    evaluationHash: {
       type: String,
-      required: [true, 'Result hash is required'],
+      required: function () {
+        return this.isDraft === false;
+      },
       trim: true,
-      length: [64, 'SHA-256 hash must be 64 characters']
+      minlength: 64,
+      maxlength: 64
     },
+
     blockchainTxHash: {
       type: String,
       trim: true,
       default: null
     },
+   
     blockchainVerified: {
-      type: Boolean,
-      default: false
-    }
+    type: Boolean,
+    default: false,
+    index: true
+  },
   },
   {
     timestamps: true,
@@ -134,8 +140,7 @@ const EvaluationSchema = new Schema<IEvaluation>(
   }
 );
 
-// Indexes for efficient queries
-EvaluationSchema.index({ submissionId: 1 }, { unique: true });
+
 EvaluationSchema.index({ teacherId: 1, createdAt: -1 });
 EvaluationSchema.index({ testId: 1, isDraft: 1 });
 EvaluationSchema.index({ isDraft: 1, updatedAt: -1 });

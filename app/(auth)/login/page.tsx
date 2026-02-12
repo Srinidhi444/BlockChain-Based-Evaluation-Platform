@@ -35,6 +35,7 @@ export default function LoginPage() {
       console.log('3. Response data:', data);
 
       if (!response.ok) {
+        console.log(data.error ? `Login failed: ${data.error}` : 'Login failed with unknown error');
         throw new Error(data.error || 'Login failed');
       }
 

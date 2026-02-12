@@ -2,8 +2,7 @@ const bcrypt = require('bcryptjs');
 const mongoose = require('mongoose');
 
 // Your MongoDB connection string
-const MONGODB_URI = 'mongodb+srv://omgosavi1499_db_user:sXaUxRky5pV4jcai@authh.byhhned.mongodb.net/answer-sheet-evaluation?retryWrites=true&w=majority&appName=authh';
-
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://kulkarnisrinidhi85_db_user:Mj1LFKs7Roq2UD06@cluster0.rfw99uc.mongodb.net/';
 // User Schema (simplified)
 const UserSchema = new mongoose.Schema({
   userId: { type: String, required: true, unique: true },

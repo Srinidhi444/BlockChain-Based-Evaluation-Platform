@@ -31,6 +31,31 @@ interface Evaluation {
   teacherName: string;
 }
 
+interface Grievance {
+  grievanceId: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'rejected';
+  grievanceType: 'calculation_error' | 'reevaluation';
+  filedAt: string;
+}
+
+interface ReEvaluation {
+  reevaluationId: string;
+  originalTotalMarksObtained: number;
+  newTotalMarksObtained: number;
+  originalPercentage: number;
+  newPercentage: number;
+  totalDifference: number;
+  percentageDifference: number;
+  comparisonData: Array<{
+    questionNumber: number;
+    maxMarks: number;
+    oldMarksObtained: number;
+    newMarksObtained: number;
+    difference: number;
+  }>;
+  newRemarks?: string;
+}
+
 export default function ResultsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -39,6 +64,8 @@ export default function ResultsPage() {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
   const [evaluation, setEvaluation] = useState<Evaluation | null>(null);
+  const [grievance, setGrievance] = useState<Grievance | null>(null);
+  const [reevaluation, setReEvaluation] = useState<ReEvaluation | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingEvaluation, setLoadingEvaluation] = useState(false);
   const [error, setError] = useState('');
@@ -87,6 +114,8 @@ export default function ResultsPage() {
       setLoadingEvaluation(true);
       setSelectedSubmission(submission);
       setError('');
+      setGrievance(null);
+      setReEvaluation(null);
       
       const response = await fetch(`/api/student/results?submissionId=${submission.submissionId}`);
       
@@ -96,6 +125,25 @@ export default function ResultsPage() {
       
       const data = await response.json();
       setEvaluation(data.data.evaluation);
+      
+      // Check if there's a grievance for this submission
+      const grievanceResponse = await fetch(`/api/student/grievance?submissionId=${submission.submissionId}`);
+      if (grievanceResponse.ok) {
+        const grievanceData = await grievanceResponse.json();
+        if (grievanceData.data.grievance) {
+          setGrievance(grievanceData.data.grievance);
+          
+          // If grievance is completed, fetch re-evaluation
+          if (grievanceData.data.grievance.status === 'completed' && grievanceData.data.grievance.reevaluationId) {
+            const reevalResponse = await fetch(`/api/student/reevaluation?submissionId=${submission.submissionId}`);
+            if (reevalResponse.ok) {
+              const reevalData = await reevalResponse.json();
+              setReEvaluation(reevalData.data.reevaluation);
+            }
+          }
+        }
+      }
+      
     } catch (err: any) {
       setError(err.message || 'Failed to load evaluation details');
       setEvaluation(null);
@@ -112,6 +160,16 @@ export default function ResultsPage() {
     if (percentage >= 50) return { grade: 'C', color: 'text-warning-600' };
     if (percentage >= 40) return { grade: 'D', color: 'text-warning-700' };
     return { grade: 'F', color: 'text-danger-600' };
+  };
+
+  const getGrievanceStatusBadge = (status: string) => {
+    const badges = {
+      pending: { text: 'Pending Review', class: 'bg-warning-100 text-warning-800' },
+      in_progress: { text: 'In Progress', class: 'bg-primary-100 text-primary-800' },
+      completed: { text: 'Completed', class: 'bg-success-100 text-success-800' },
+      rejected: { text: 'Rejected', class: 'bg-danger-100 text-danger-800' },
+    };
+    return badges[status as keyof typeof badges] || badges.pending;
   };
 
   if (loading) {
@@ -197,23 +255,138 @@ export default function ResultsPage() {
               </div>
             ) : evaluation ? (
               <div className="space-y-6">
+                {/* Grievance Status (if exists) */}
+                {grievance && (
+                  <div className={`card ${
+                    grievance.status === 'completed' ? 'bg-success-50 border-success-200' :
+                    grievance.status === 'in_progress' ? 'bg-primary-50 border-primary-200' :
+                    'bg-warning-50 border-warning-200'
+                  } border-2`}>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-semibold text-lg mb-1">
+                          📝 Grievance Filed
+                        </h3>
+                        <p className="text-sm text-secondary-600">
+                          Type: {grievance.grievanceType === 'calculation_error' ? 'Calculation Error' : 'Re-evaluation'}
+                        </p>
+                        <p className="text-xs text-secondary-500 mt-1">
+                          Filed on {new Date(grievance.filedAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                        getGrievanceStatusBadge(grievance.status).class
+                      }`}>
+                        {getGrievanceStatusBadge(grievance.status).text}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Re-evaluation Comparison (if completed) */}
+                {reevaluation && (
+                  <div className="card bg-gradient-to-br from-purple-50 to-primary-50 border-2 border-purple-300">
+                    <h3 className="text-lg font-semibold mb-4 text-purple-900">
+                      🔄 Re-evaluation Results
+                    </h3>
+                    
+                    <div className="grid grid-cols-3 gap-4 mb-4">
+                      <div className="text-center p-3 bg-white rounded-lg">
+                        <p className="text-xs text-secondary-600 mb-1">Original</p>
+                        <p className="text-xl font-bold text-secondary-900">
+                          {reevaluation.originalTotalMarksObtained}
+                        </p>
+                        <p className="text-sm text-secondary-600">
+                          {reevaluation.originalPercentage.toFixed(1)}%
+                        </p>
+                      </div>
+                      
+                      <div className="text-center p-3 bg-white rounded-lg">
+                        <p className="text-xs text-secondary-600 mb-1">New</p>
+                        <p className="text-xl font-bold text-purple-700">
+                          {reevaluation.newTotalMarksObtained}
+                        </p>
+                        <p className="text-sm text-purple-600">
+                          {reevaluation.newPercentage.toFixed(1)}%
+                        </p>
+                      </div>
+                      
+                      <div className="text-center p-3 bg-white rounded-lg">
+                        <p className="text-xs text-secondary-600 mb-1">Difference</p>
+                        <p className={`text-xl font-bold ${
+                          reevaluation.totalDifference > 0 ? 'text-success-600' :
+                          reevaluation.totalDifference < 0 ? 'text-danger-600' :
+                          'text-secondary-600'
+                        }`}>
+                          {reevaluation.totalDifference > 0 ? '+' : ''}{reevaluation.totalDifference}
+                        </p>
+                        <p className={`text-sm ${
+                          reevaluation.percentageDifference > 0 ? 'text-success-600' :
+                          reevaluation.percentageDifference < 0 ? 'text-danger-600' :
+                          'text-secondary-600'
+                        }`}>
+                          {reevaluation.percentageDifference > 0 ? '+' : ''}{reevaluation.percentageDifference.toFixed(2)}%
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {/* Question-wise comparison */}
+                    <div className="space-y-2">
+                      <h4 className="font-semibold text-sm text-purple-900">Question-wise Changes:</h4>
+                      {reevaluation.comparisonData.map((comp) => (
+                        comp.difference !== 0 && (
+                          <div key={comp.questionNumber} className="flex justify-between items-center p-2 bg-white rounded">
+                            <span className="text-sm font-medium">Q{comp.questionNumber}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-secondary-600">
+                                {comp.oldMarksObtained} → {comp.newMarksObtained}
+                              </span>
+                              <span className={`text-sm font-bold ${
+                                comp.difference > 0 ? 'text-success-600' : 'text-danger-600'
+                              }`}>
+                                ({comp.difference > 0 ? '+' : ''}{comp.difference})
+                              </span>
+                            </div>
+                          </div>
+                        )
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Score Card */}
                 <div className="card bg-gradient-to-br from-primary-500 to-primary-600 text-white">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-lg font-semibold">
+                      {reevaluation ? 'Current Score (After Re-evaluation)' : 'Your Score'}
+                    </h3>
+                    {!grievance && !reevaluation && (
+                      <Link
+                        href={`/grievance/${selectedSubmission.submissionId}`}
+                        className="bg-white text-primary-600 px-3 py-1 rounded-full text-sm font-semibold hover:bg-primary-50 transition-colors"
+                      >
+                        📝 File Grievance
+                      </Link>
+                    )}
+                  </div>
+                  
                   <div className="grid grid-cols-3 gap-4 text-center">
                     <div>
                       <p className="text-primary-100 text-sm mb-1">Marks Obtained</p>
                       <p className="text-3xl font-bold">
-                        {evaluation.totalMarksObtained}/{evaluation.totalMarks}
+                        {reevaluation ? reevaluation.newTotalMarksObtained : evaluation.totalMarksObtained}/{evaluation.totalMarks}
                       </p>
                     </div>
                     <div>
                       <p className="text-primary-100 text-sm mb-1">Percentage</p>
-                      <p className="text-3xl font-bold">{evaluation.percentage.toFixed(2)}%</p>
+                      <p className="text-3xl font-bold">
+                        {reevaluation ? reevaluation.newPercentage.toFixed(2) : evaluation.percentage.toFixed(2)}%
+                      </p>
                     </div>
                     <div>
                       <p className="text-primary-100 text-sm mb-1">Grade</p>
                       <p className="text-3xl font-bold">
-                        {getGrade(evaluation.percentage).grade}
+                        {getGrade(reevaluation ? reevaluation.newPercentage : evaluation.percentage).grade}
                       </p>
                     </div>
                   </div>
@@ -223,47 +396,72 @@ export default function ResultsPage() {
                 <div className="card">
                   <h3 className="text-lg font-semibold mb-4">Question-wise Breakdown</h3>
                   <div className="space-y-3">
-                    {evaluation.questionMarks.map((qm) => (
-                      <div
-                        key={qm.questionNumber}
-                        className="p-4 bg-secondary-50 rounded-lg border border-secondary-200"
-                      >
-                        <div className="flex justify-between items-start mb-2">
-                          <span className="font-medium">Question {qm.questionNumber}</span>
-                          <span className="font-semibold">
-                            {qm.marksObtained}/{qm.maxMarks}
-                          </span>
+                    {evaluation.questionMarks.map((qm) => {
+                      const reevalQ = reevaluation?.comparisonData.find(c => c.questionNumber === qm.questionNumber);
+                      const currentMarks = reevalQ ? reevalQ.newMarksObtained : qm.marksObtained;
+                      
+                      return (
+                        <div
+                          key={qm.questionNumber}
+                          className="p-4 bg-secondary-50 rounded-lg border border-secondary-200"
+                        >
+                          <div className="flex justify-between items-start mb-2">
+                            <span className="font-medium">Question {qm.questionNumber}</span>
+                            <div className="text-right">
+                              <span className="font-semibold">
+                                {currentMarks}/{qm.maxMarks}
+                              </span>
+                              {reevalQ && reevalQ.difference !== 0 && (
+                                <p className={`text-xs font-bold mt-1 ${
+                                  reevalQ.difference > 0 ? 'text-success-600' : 'text-danger-600'
+                                }`}>
+                                  ({reevalQ.difference > 0 ? '+' : ''}{reevalQ.difference})
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* Progress Bar */}
+                          <div className="w-full bg-secondary-200 rounded-full h-2 mb-2">
+                            <div
+                              className={`h-2 rounded-full ${
+                                (currentMarks / qm.maxMarks) * 100 >= 70
+                                  ? 'bg-success-500'
+                                  : (currentMarks / qm.maxMarks) * 100 >= 40
+                                  ? 'bg-warning-500'
+                                  : 'bg-danger-500'
+                              }`}
+                              style={{ width: `${(currentMarks / qm.maxMarks) * 100}%` }}
+                            ></div>
+                          </div>
+                          
+                          {qm.comment && (
+                            <p className="text-sm text-secondary-600 italic mt-2">
+                              💬 {qm.comment}
+                            </p>
+                          )}
                         </div>
-                        
-                        {/* Progress Bar */}
-                        <div className="w-full bg-secondary-200 rounded-full h-2 mb-2">
-                          <div
-                            className={`h-2 rounded-full ${
-                              (qm.marksObtained / qm.maxMarks) * 100 >= 70
-                                ? 'bg-success-500'
-                                : (qm.marksObtained / qm.maxMarks) * 100 >= 40
-                                ? 'bg-warning-500'
-                                : 'bg-danger-500'
-                            }`}
-                            style={{ width: `${(qm.marksObtained / qm.maxMarks) * 100}%` }}
-                          ></div>
-                        </div>
-                        
-                        {qm.comment && (
-                          <p className="text-sm text-secondary-600 italic mt-2">
-                            💬 {qm.comment}
-                          </p>
-                        )}
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
 
                 {/* Teacher Remarks */}
-                {evaluation.remarks && (
+                {(evaluation.remarks || reevaluation?.newRemarks) && (
                   <div className="card bg-primary-50 border border-primary-200">
                     <h3 className="text-lg font-semibold mb-3">Teacher's Remarks</h3>
-                    <p className="text-secondary-700">{evaluation.remarks}</p>
+                    {reevaluation?.newRemarks && (
+                      <div className="mb-3 p-3 bg-purple-50 border border-purple-200 rounded">
+                        <p className="text-xs font-semibold text-purple-800 mb-1">Re-evaluation Remarks:</p>
+                        <p className="text-secondary-700">{reevaluation.newRemarks}</p>
+                      </div>
+                    )}
+                    {evaluation.remarks && (
+                      <div>
+                        <p className="text-xs font-semibold text-secondary-600 mb-1">Original Remarks:</p>
+                        <p className="text-secondary-700">{evaluation.remarks}</p>
+                      </div>
+                    )}
                   </div>
                 )}
 

@@ -1,6 +1,6 @@
 /**
  * ID Generator Utilities
- * Generates unique IDs for Tests, Submissions, Evaluations, and Users
+ * Generates unique IDs for Tests, Submissions, Evaluations, Users, Grievances, and Re-evaluations
  */
 
 import { ethers } from "ethers";
@@ -39,8 +39,9 @@ export function generateSubmissionId(
 
   const raw = `${studentId}_${testId}_${timestamp}`;
 
-  return ethers.keccak256(ethers.toUtf8Bytes(raw));
+  return ethers.keccak256(ethers.toUtf8Bytes(raw)).toLowerCase();
 }
+
 
 /**
  * Generate Evaluation ID
@@ -52,6 +53,30 @@ export function generateEvaluationId(
   teacherId: string
 ): string {
   return `EVAL_${submissionId}_${teacherId}`;
+}
+
+/**
+ * Generate Grievance ID
+ * Format: GRV_SUBMISSIONID_TIMESTAMP
+ * Example: GRV_0x123abc...def_1707654321
+ */
+export function generateGrievanceId(
+  submissionId: string
+): string {
+  const timestamp = Date.now();
+  return `GRV_${submissionId}_${timestamp}`;
+}
+
+/**
+ * Generate Re-evaluation ID
+ * Format: REEVAL_GRIEVANCEID_TIMESTAMP
+ * Example: REEVAL_GRV_0x123abc...def_1707654321_1707654500
+ */
+export function generateReEvaluationId(
+  grievanceId: string
+): string {
+  const timestamp = Date.now();
+  return `REEVAL_${grievanceId}_${timestamp}`;
 }
 
 /**
@@ -139,6 +164,49 @@ export function parseSubmissionId(submissionId: string): {
 }
 
 /**
+ * Parse Grievance ID to extract components
+ */
+export function parseGrievanceId(grievanceId: string): {
+  submissionId: string;
+  timestamp: number;
+} | null {
+  const parts = grievanceId.split('_');
+  if (parts.length < 3 || parts[0] !== 'GRV') {
+    return null;
+  }
+  
+  // Handle keccak256 submission ID (0x...)
+  const submissionId = parts.slice(1, parts.length - 1).join('_');
+  const timestamp = parseInt(parts[parts.length - 1]);
+  
+  return {
+    submissionId,
+    timestamp
+  };
+}
+
+/**
+ * Parse Re-evaluation ID to extract components
+ */
+export function parseReEvaluationId(reevaluationId: string): {
+  grievanceId: string;
+  timestamp: number;
+} | null {
+  const parts = reevaluationId.split('_');
+  if (parts.length < 3 || parts[0] !== 'REEVAL') {
+    return null;
+  }
+  
+  const grievanceId = parts.slice(1, parts.length - 1).join('_');
+  const timestamp = parseInt(parts[parts.length - 1]);
+  
+  return {
+    grievanceId,
+    timestamp
+  };
+}
+
+/**
  * Validate ID formats
  */
 export function isValidTestId(testId: string): boolean {
@@ -148,6 +216,12 @@ export function isValidTestId(testId: string): boolean {
 }
 
 export function isValidSubmissionId(submissionId: string): boolean {
+  // Check if it's a keccak256 hash (starts with 0x and 66 chars total)
+  if (/^0x[a-fA-F0-9]{64}$/.test(submissionId)) {
+    return true;
+  }
+  
+  // Legacy format check
   const parts = submissionId.split('_');
   return parts.length >= 7 && parts[0] === 'SUB' && parts[2] === 'TEST';
 }
@@ -155,6 +229,16 @@ export function isValidSubmissionId(submissionId: string): boolean {
 export function isValidUserId(userId: string): boolean {
   const regex = /^(ST|TCH|ADM)\d{7}$/;
   return regex.test(userId);
+}
+
+export function isValidGrievanceId(grievanceId: string): boolean {
+  const regex = /^GRV_.+_\d+$/;
+  return regex.test(grievanceId);
+}
+
+export function isValidReEvaluationId(reevaluationId: string): boolean {
+  const regex = /^REEVAL_GRV_.+_\d+$/;
+  return regex.test(reevaluationId);
 }
 
 /**

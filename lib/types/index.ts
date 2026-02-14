@@ -114,6 +114,97 @@ export interface IQuestionMark {
   comment?: string;
 }
 
+// Grievance Types (NEW)
+export interface IGrievance {
+  _id: string;
+  grievanceId: string; // Format: GRV_SUBMISSIONID_TIMESTAMP
+  submissionId: string;
+  testId: string;
+  studentId: string;
+  studentName: string;
+  
+  grievanceType: 'calculation_error' | 'reevaluation';
+  questionNumber?: number;
+  explanation: string;
+  
+  originalTeacherId: string;
+  assignedTeacherId: string;
+  
+  status: 'pending' | 'in_progress' | 'completed' | 'rejected';
+  
+  originalEvaluationId: string;
+  reevaluationId?: string;
+  
+  filedAt: Date;
+  assignedAt?: Date;
+  completedAt?: Date;
+  
+  adminNotes?: string;
+  rejectionReason?: string;
+  
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Re-evaluation Types (NEW)
+export interface IQuestionMarkComparison {
+  questionNumber: number;
+  maxMarks: number;
+  oldMarksObtained: number;
+  newMarksObtained: number;
+  oldComment?: string;
+  newComment?: string;
+  difference: number;
+}
+
+export interface IReEvaluation {
+  _id: string;
+  reevaluationId: string; // Format: REEVAL_GRIEVANCEID_TIMESTAMP
+  grievanceId: string;
+  submissionId: string;
+  testId: string;
+  studentId: string;
+  
+  // Original evaluation
+  originalEvaluationId: string;
+  originalTeacherId: string;
+  originalTeacherName: string;
+  originalQuestionMarks: IQuestionMark[];
+  originalTotalMarksObtained: number;
+  originalTotalMarks: number;
+  originalPercentage: number;
+  originalRemarks?: string;
+  originalEvaluatedAt: Date;
+  
+  // New evaluation
+  newTeacherId: string;
+  newTeacherName: string;
+  newQuestionMarks: IQuestionMark[];
+  newTotalMarksObtained: number;
+  newTotalMarks: number;
+  newPercentage: number;
+  newRemarks?: string;
+  newEvaluatedAt: Date;
+  
+  // Comparison
+  comparisonData: IQuestionMarkComparison[];
+  totalDifference: number;
+  percentageDifference: number;
+  
+  // Approval
+  isApproved: boolean;
+  approvedBy?: string;
+  approvedAt?: Date;
+  
+  // Blockchain
+  resultHash: string;
+  blockchainTxHash?: string;
+  blockchainVerified: boolean;
+  
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 // API Response Types
 export interface ApiResponse<T = any> {
   success: boolean;
@@ -160,12 +251,23 @@ export interface SubmissionFilters {
   dateTo?: string;
 }
 
+export interface GrievanceFilters {
+  status?: 'pending' | 'in_progress' | 'completed' | 'rejected';
+  grievanceType?: 'calculation_error' | 'reevaluation';
+  studentId?: string;
+  teacherId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}
+
 // Dashboard Stats Types
 export interface StudentStats {
   totalSubmissions: number;
   evaluatedSubmissions: number;
   pendingSubmissions: number;
   averageMarks: number;
+  grievancesFiled?: number;
+  grievancesCompleted?: number;
 }
 
 export interface TeacherStats {
@@ -173,6 +275,8 @@ export interface TeacherStats {
   evaluatedSubmissions: number;
   pendingSubmissions: number;
   testsCreated: number;
+  pendingGrievances?: number;
+  completedGrievances?: number;
 }
 
 // File Upload Types
@@ -183,7 +287,7 @@ export interface FileUploadResult {
   type: string;
 }
 
-// Add Student Types (NEW)
+// Add Student Types
 export interface AddStudentRequest {
   name: string;
   email: string;
@@ -210,6 +314,55 @@ export interface AddStudentResponse {
       userId: string;
       password: string;
       emailSent: boolean;
+    };
+  };
+}
+
+// Grievance Request/Response Types (NEW)
+export interface FileGrievanceRequest {
+  submissionId: string;
+  grievanceType: 'calculation_error' | 'reevaluation';
+  questionNumber?: number;
+  explanation: string;
+}
+
+export interface FileGrievanceResponse {
+  success: boolean;
+  message: string;
+  data: {
+    grievance: {
+      grievanceId: string;
+      submissionId: string;
+      grievanceType: string;
+      status: string;
+      filedAt: Date;
+      assignedTeacherId: string;
+    };
+  };
+}
+
+export interface ReEvaluateRequest {
+  grievanceId: string;
+  questionMarks: IQuestionMark[];
+  remarks?: string;
+}
+
+export interface ReEvaluateResponse {
+  success: boolean;
+  message: string;
+  data: {
+    reevaluation: {
+      reevaluationId: string;
+      grievanceId: string;
+      submissionId: string;
+      originalTotalMarksObtained: number;
+      newTotalMarksObtained: number;
+      totalDifference: number;
+      originalPercentage: number;
+      newPercentage: number;
+      percentageDifference: number;
+      comparisonData: IQuestionMarkComparison[];
+      resultHash: string;
     };
   };
 }

@@ -205,6 +205,205 @@ export interface IReEvaluation {
   updatedAt: Date;
 }
 
+// ==================== AUDIT SYSTEM TYPES (NEW) ====================
+
+// Audit Event Types Enum
+export enum AuditEventType {
+  // Evaluation Events
+  EVALUATION_STARTED = 'evaluation_started',
+  EVALUATION_QUESTION_MARKED = 'evaluation_question_marked',
+  EVALUATION_DRAFT_SAVED = 'evaluation_draft_saved',
+  EVALUATION_COMPLETED = 'evaluation_completed',
+  EVALUATION_PUBLISHED = 'evaluation_published',
+  
+  // Re-evaluation Events
+  REEVALUATION_STARTED = 'reevaluation_started',
+  REEVALUATION_QUESTION_MARKED = 'reevaluation_question_marked',
+  REEVALUATION_COMPLETED = 'reevaluation_completed',
+  
+  // Grievance Events
+  GRIEVANCE_FILED = 'grievance_filed',
+  GRIEVANCE_ASSIGNED = 'grievance_assigned',
+  GRIEVANCE_IN_PROGRESS = 'grievance_in_progress',
+  GRIEVANCE_COMPLETED = 'grievance_completed',
+  GRIEVANCE_REJECTED = 'grievance_rejected',
+  GRIEVANCE_LIST_ACCESSED = 'grievance_list_accessed',
+  
+  // Access Events
+  SUBMISSION_ACCESSED = 'submission_accessed',
+  SUBMISSION_LIST_ACCESSED = 'submission_list_accessed',
+  EVALUATION_ACCESSED = 'evaluation_accessed',
+}
+
+// Audit Log Interface
+export interface IAuditLog {
+  _id: string;
+  eventId: string; // Unique event ID
+  eventType: AuditEventType;
+  timestamp: Date;
+  
+  // User Context
+  userId: string;
+  userRole: 'student' | 'teacher' | 'admin';
+  userName?: string;
+  department?: string;
+  
+  // Entity Context
+  submissionId?: string;
+  testId?: string;
+  evaluationId?: string;
+  grievanceId?: string;
+  studentId?: string;
+  studentName?: string;
+  teacherId?: string;
+  
+  // Session Context
+  sessionId?: string;
+  
+  // Question-Level Data (for marking events)
+  questionNumber?: number;
+  marksAwarded?: number;
+  maxMarks?: number;
+  comment?: string;
+  timeSpent?: number; // Seconds spent on this question
+  cumulativeTime?: number; // Total time spent so far
+  questionSequence?: number; // Order in which question was marked
+  
+  // Evaluation Context
+  totalMarksAwarded?: number;
+  totalMaxMarks?: number;
+  percentage?: number;
+  
+  // Re-evaluation Context
+  originalEvaluationId?: string;
+  originalTeacherId?: string;
+  originalMarks?: number;
+  newMarks?: number;
+  marksDifference?: number;
+  
+  // Grievance Context
+  grievanceType?: 'calculation_error' | 'reevaluation';
+  assignedTeacherId?: string;
+  
+  // Academic Context
+  subject?: string;
+  year?: number;
+  division?: string;
+  academicYear?: string;
+  
+  // Device & Location Context
+  ipAddress?: string;
+  deviceInfo?: string;
+  userAgent?: string;
+  
+  // Additional Metadata
+  metadata?: Record<string, any>;
+  
+  createdAt: Date;
+}
+
+// Question Timing Data
+export interface IQuestionTiming {
+  questionNumber: number;
+  timeSpent: number; // Seconds
+  markedAt: Date;
+  sequenceOrder: number; // Order in which question was marked
+}
+
+// Evaluation Session Data
+export interface IEvaluationSession {
+  evaluationId: string;
+  submissionId: string;
+  testId: string;
+  teacherId: string;
+  teacherName: string;
+  studentId: string;
+  studentName?: string;
+  department: string;
+  subject: string;
+  year: number;
+  division: string;
+  academicYear: string;
+  
+  // Session Tracking
+  sessionId: string;
+  sessionStartTime: Date;
+  sessionEndTime: Date;
+  
+  // Marks Data
+  questionMarks: Array<{
+    questionNumber: number;
+    maxMarks: number;
+    marksAwarded: number;
+    comment?: string;
+    timeSpent: number;
+    markedAt: Date;
+    sequenceOrder: number;
+  }>;
+  
+  totalMarksAwarded: number;
+  totalMaxMarks: number;
+  
+  // Re-evaluation Context (if applicable)
+  isReevaluation?: boolean;
+  originalEvaluationId?: string;
+  grievanceId?: string;
+}
+
+// Bias Detection Metrics
+export interface IBiasMetrics {
+  teacherId: string;
+  teacherName: string;
+  department: string;
+  subject: string;
+  academicYear: string;
+  
+  // Evaluation Statistics
+  totalEvaluations: number;
+  averageMarksAwarded: number;
+  averagePercentage: number;
+  standardDeviation: number;
+  
+  // Timing Statistics
+  averageTimePerSubmission: number; // Minutes
+  averageTimePerQuestion: number; // Seconds
+  fastestEvaluation: number; // Minutes
+  slowestEvaluation: number; // Minutes
+  
+  // Pattern Detection
+  marksDistribution: {
+    range: string; // e.g., "0-20", "20-40"
+    count: number;
+    percentage: number;
+  }[];
+  
+  // Grievance Statistics
+  totalGrievances: number;
+  grievancesAccepted: number; // Mark changes after re-evaluation
+  grievancesRejected: number; // No mark changes
+  averageMarkChangeOnGrievance: number;
+  
+  // Consistency Metrics
+  consistencyScore: number; // 0-100
+  biasScore: number; // 0-100 (higher = more bias detected)
+  
+  // Time-based Patterns
+  evaluationsByTimeOfDay: {
+    hour: number;
+    count: number;
+    averageMarks: number;
+  }[];
+  
+  // Student-based Patterns
+  evaluationsByStudentYear: {
+    year: number;
+    count: number;
+    averageMarks: number;
+  }[];
+}
+
+// ==================== API TYPES WITH AUDIT ====================
+
 // API Response Types
 export interface ApiResponse<T = any> {
   success: boolean;
@@ -277,6 +476,8 @@ export interface TeacherStats {
   testsCreated: number;
   pendingGrievances?: number;
   completedGrievances?: number;
+  averageEvaluationTime?: number; // Minutes (NEW)
+  biasScore?: number; // 0-100 (NEW)
 }
 
 // File Upload Types
@@ -318,7 +519,7 @@ export interface AddStudentResponse {
   };
 }
 
-// Grievance Request/Response Types (NEW)
+// Grievance Request/Response Types
 export interface FileGrievanceRequest {
   submissionId: string;
   grievanceType: 'calculation_error' | 'reevaluation';
@@ -341,10 +542,17 @@ export interface FileGrievanceResponse {
   };
 }
 
+// Re-evaluation Request/Response (with audit)
 export interface ReEvaluateRequest {
   grievanceId: string;
   questionMarks: IQuestionMark[];
   remarks?: string;
+  
+  // ✅ NEW: Audit tracking fields
+  sessionId?: string;
+  sessionStartTime?: string | Date;
+  sessionEndTime?: string | Date;
+  questionTimings?: IQuestionTiming[];
 }
 
 export interface ReEvaluateResponse {
@@ -364,5 +572,74 @@ export interface ReEvaluateResponse {
       comparisonData: IQuestionMarkComparison[];
       resultHash: string;
     };
+    sessionId?: string; // ✅ NEW: Return sessionId for tracking
+  };
+}
+
+// Evaluation Request (with audit)
+export interface CreateEvaluationRequest {
+  submissionId: string;
+  questionMarks: IQuestionMark[];
+  remarks?: string;
+  isDraft?: boolean;
+  
+  // ✅ NEW: Audit tracking fields
+  sessionId?: string;
+  sessionStartTime?: string | Date;
+  sessionEndTime?: string | Date;
+  questionTimings?: IQuestionTiming[];
+}
+
+export interface CreateEvaluationResponse {
+  success: boolean;
+  message: string;
+  data: {
+    evaluation: {
+      evaluationId: string;
+      submissionId: string;
+      totalMarksObtained: number;
+      totalMarks: number;
+      percentage: number;
+      isDraft: boolean;
+      resultHash: string;
+    };
+    sessionId?: string; // ✅ NEW: Return sessionId for tracking
+  };
+}
+
+// Audit Query Filters (NEW)
+export interface AuditLogFilters {
+  eventType?: AuditEventType | AuditEventType[];
+  userId?: string;
+  userRole?: 'student' | 'teacher' | 'admin';
+  department?: string;
+  subject?: string;
+  testId?: string;
+  submissionId?: string;
+  evaluationId?: string;
+  grievanceId?: string;
+  sessionId?: string;
+  dateFrom?: string | Date;
+  dateTo?: string | Date;
+  limit?: number;
+  skip?: number;
+}
+
+// Bias Analysis Request (NEW)
+export interface BiasAnalysisRequest {
+  teacherId?: string;
+  department?: string;
+  subject?: string;
+  academicYear?: string;
+  dateFrom?: string | Date;
+  dateTo?: string | Date;
+}
+
+export interface BiasAnalysisResponse {
+  success: boolean;
+  data: {
+    metrics: IBiasMetrics;
+    recommendations: string[];
+    riskLevel: 'low' | 'medium' | 'high';
   };
 }

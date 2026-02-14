@@ -51,6 +51,13 @@ interface OriginalEvaluation {
     remarks?: string;
 }
 
+// ✅ NEW: Question timing interface
+interface QuestionTiming {
+    questionNumber: number;
+    startTime: Date;
+    endTime?: Date;
+}
+
 export default function ReEvaluatePage() {
     const router = useRouter();
     const params = useParams();
@@ -67,6 +74,11 @@ export default function ReEvaluatePage() {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+
+    // ✅ NEW: Session tracking states
+    const [sessionStartTime] = useState<Date>(() => new Date());
+    const [questionTimings, setQuestionTimings] = useState<Map<number, QuestionTiming>>(new Map());
+    const [currentQuestion, setCurrentQuestion] = useState<number | null>(null);
 
     // Calculate totals
     const totalMarksObtained = questionMarks.reduce((sum, q) => sum + (q.marksObtained || 0), 0);
@@ -87,7 +99,6 @@ export default function ReEvaluatePage() {
             setLoading(true);
 
             const response = await fetch(`/api/teacher/grievance-details?grievanceId=${grievanceId}`);
-
 
             if (!response.ok) {
                 if (response.status === 401) {
@@ -120,6 +131,72 @@ export default function ReEvaluatePage() {
         }
     };
 
+    // ✅ NEW: Track when teacher starts marking a question
+    const handleQuestionFocus = (questionNumber: number) => {
+        if (currentQuestion === questionNumber) return;
+
+        // End timing for previous question if exists
+        if (currentQuestion !== null) {
+            setQuestionTimings(prev => {
+                const newMap = new Map(prev);
+                const timing = newMap.get(currentQuestion);
+                if (timing && !timing.endTime) {
+                    newMap.set(currentQuestion, { ...timing, endTime: new Date() });
+                }
+                return newMap;
+            });
+        }
+
+        // Start timing for new question
+        setCurrentQuestion(questionNumber);
+        setQuestionTimings(prev => {
+            const newMap = new Map(prev);
+            if (!newMap.has(questionNumber)) {
+                newMap.set(questionNumber, {
+                    questionNumber,
+                    startTime: new Date()
+                });
+            }
+            return newMap;
+        });
+    };
+
+    // ✅ NEW: Track when teacher finishes marking a question
+    const handleQuestionBlur = (questionNumber: number) => {
+        setQuestionTimings(prev => {
+            const newMap = new Map(prev);
+            const timing = newMap.get(questionNumber);
+            if (timing && !timing.endTime) {
+                newMap.set(questionNumber, { ...timing, endTime: new Date() });
+            }
+            return newMap;
+        });
+    };
+
+    // ✅ NEW: Prepare session data for API
+    const getSessionData = () => {
+        const sessionEndTime = new Date();
+
+        const timingsArray = Array.from(questionTimings.entries())
+            .map(([questionNumber, timing], index) => {
+                const endTime = timing.endTime || sessionEndTime;
+                const timeSpent = Math.floor((endTime.getTime() - timing.startTime.getTime()) / 1000);
+
+                return {
+                    questionNumber,
+                    timeSpent: Math.max(timeSpent, 0), // Ensure non-negative
+                    markedAt: endTime.toISOString(),
+                    sequenceOrder: index + 1,
+                };
+            });
+
+        return {
+            sessionStartTime: sessionStartTime.toISOString(),
+            sessionEndTime: sessionEndTime.toISOString(),
+            questionTimings: timingsArray,
+        };
+    };
+
     const handleMarksChange = (questionNumber: number, value: string) => {
         const marks = parseFloat(value) || 0;
         const question = questionMarks.find(q => q.questionNumber === questionNumber);
@@ -127,6 +204,11 @@ export default function ReEvaluatePage() {
         if (question && marks > question.maxMarks) {
             setError(`Marks for Question ${questionNumber} cannot exceed ${question.maxMarks}`);
             return;
+        }
+
+        // ✅ Track that this question was marked
+        if (!questionTimings.has(questionNumber)) {
+            handleQuestionFocus(questionNumber);
         }
 
         setQuestionMarks(prev =>
@@ -140,6 +222,11 @@ export default function ReEvaluatePage() {
     };
 
     const handleCommentChange = (questionNumber: number, value: string) => {
+        // ✅ Track that this question was marked
+        if (!questionTimings.has(questionNumber)) {
+            handleQuestionFocus(questionNumber);
+        }
+
         setQuestionMarks(prev =>
             prev.map(q =>
                 q.questionNumber === questionNumber
@@ -171,6 +258,21 @@ export default function ReEvaluatePage() {
             setError('');
             setSuccess('');
 
+            // ✅ End timing for current question if active
+            if (currentQuestion !== null) {
+                handleQuestionBlur(currentQuestion);
+            }
+
+            // ✅ Get session data with all timings
+            const sessionData = getSessionData();
+
+            console.log('📊 Submitting re-evaluation with session data:', {
+                sessionStartTime: sessionData.sessionStartTime,
+                sessionEndTime: sessionData.sessionEndTime,
+                totalQuestions: sessionData.questionTimings.length,
+                totalTimeSeconds: sessionData.questionTimings.reduce((sum, t) => sum + t.timeSpent, 0),
+            });
+
             const response = await fetch('/api/teacher/reevaluate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -178,12 +280,15 @@ export default function ReEvaluatePage() {
                     grievanceId,
                     questionMarks,
                     remarks,
+                    // ✅ REQUIRED: Session tracking data
+                    ...sessionData,
                 }),
             });
 
             const data = await response.json();
 
             if (!response.ok) {
+                console.error('❌ Re-evaluation error:', data);
                 throw new Error(data.error || 'Failed to submit re-evaluation');
             }
 
@@ -321,6 +426,15 @@ export default function ReEvaluatePage() {
                                         {new Date(grievance.filedAt).toLocaleDateString()}
                                     </span>
                                 </div>
+                                {/* ✅ NEW: Show session time */}
+                                {!isReadOnly && (
+                                    <div className="flex justify-between pt-2 border-t border-secondary-200">
+                                        <span className="text-secondary-600">Session Started:</span>
+                                        <span className="font-medium text-xs">
+                                            {sessionStartTime.toLocaleTimeString()}
+                                        </span>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="mt-4 p-3 bg-warning-50 border border-warning-200 rounded-lg">
@@ -465,6 +579,7 @@ export default function ReEvaluatePage() {
                                                     ? 'bg-warning-50 border-warning-300'
                                                     : 'bg-secondary-50 border-secondary-200'
                                                 }`}
+                                            onFocus={() => handleQuestionFocus(qm.questionNumber)}
                                         >
                                             <div className="flex justify-between items-start mb-3">
                                                 <div>
@@ -499,6 +614,8 @@ export default function ReEvaluatePage() {
                                                         step="0.5"
                                                         value={qm.marksObtained || ''}
                                                         onChange={(e) => handleMarksChange(qm.questionNumber, e.target.value)}
+                                                        onFocus={() => handleQuestionFocus(qm.questionNumber)}
+                                                        onBlur={() => handleQuestionBlur(qm.questionNumber)}
                                                         disabled={isReadOnly}
                                                         placeholder="0"
                                                     />
@@ -513,6 +630,8 @@ export default function ReEvaluatePage() {
                                                         className="input"
                                                         value={qm.comment}
                                                         onChange={(e) => handleCommentChange(qm.questionNumber, e.target.value)}
+                                                        onFocus={() => handleQuestionFocus(qm.questionNumber)}
+                                                        onBlur={() => handleQuestionBlur(qm.questionNumber)}
                                                         disabled={isReadOnly}
                                                         placeholder="Add feedback..."
                                                     />

@@ -40,6 +40,13 @@ interface QuestionMark {
   comment: string;
 }
 
+// ✅ NEW: Question timing interface
+interface QuestionTiming {
+  questionNumber: number;
+  startTime: Date;
+  endTime?: Date;
+}
+
 export default function EvaluateSubmissionPage() {
   const router = useRouter();
   const params = useParams();
@@ -53,6 +60,11 @@ export default function EvaluateSubmissionPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  
+  // ✅ NEW: Session tracking states
+  const [sessionStartTime] = useState<Date>(() => new Date());
+  const [questionTimings, setQuestionTimings] = useState<Map<number, QuestionTiming>>(new Map());
+  const [currentQuestion, setCurrentQuestion] = useState<number | null>(null);
   
   // Calculate totals
   const totalMarksObtained = questionMarks.reduce((sum, q) => sum + (q.marksObtained || 0), 0);
@@ -105,6 +117,72 @@ export default function EvaluateSubmissionPage() {
     }
   };
 
+  // ✅ NEW: Track when teacher starts marking a question
+  const handleQuestionFocus = (questionNumber: number) => {
+    if (currentQuestion === questionNumber) return;
+    
+    // End timing for previous question if exists
+    if (currentQuestion !== null) {
+      setQuestionTimings(prev => {
+        const newMap = new Map(prev);
+        const timing = newMap.get(currentQuestion);
+        if (timing && !timing.endTime) {
+          newMap.set(currentQuestion, { ...timing, endTime: new Date() });
+        }
+        return newMap;
+      });
+    }
+    
+    // Start timing for new question
+    setCurrentQuestion(questionNumber);
+    setQuestionTimings(prev => {
+      const newMap = new Map(prev);
+      if (!newMap.has(questionNumber)) {
+        newMap.set(questionNumber, { 
+          questionNumber, 
+          startTime: new Date() 
+        });
+      }
+      return newMap;
+    });
+  };
+
+  // ✅ NEW: Track when teacher finishes marking a question
+  const handleQuestionBlur = (questionNumber: number) => {
+    setQuestionTimings(prev => {
+      const newMap = new Map(prev);
+      const timing = newMap.get(questionNumber);
+      if (timing && !timing.endTime) {
+        newMap.set(questionNumber, { ...timing, endTime: new Date() });
+      }
+      return newMap;
+    });
+  };
+
+  // ✅ NEW: Prepare session data for API
+  const getSessionData = () => {
+    const sessionEndTime = new Date();
+    
+    const timingsArray = Array.from(questionTimings.entries())
+      .map(([questionNumber, timing], index) => {
+        const endTime = timing.endTime || sessionEndTime;
+        const timeSpent = Math.floor((endTime.getTime() - timing.startTime.getTime()) / 1000);
+        
+        return {
+          questionNumber,
+          timeSpent: Math.max(timeSpent, 0), // Ensure non-negative
+          markedAt: endTime.toISOString(),
+          sequenceOrder: index + 1,
+        };
+      });
+    
+    return {
+      sessionStartTime: sessionStartTime.toISOString(),
+      sessionEndTime: sessionEndTime.toISOString(),
+      questionTimings: timingsArray,
+    };
+  };
+
   const handleMarksChange = (questionNumber: number, value: string) => {
     const marks = parseFloat(value) || 0;
     const question = questionMarks.find(q => q.questionNumber === questionNumber);
@@ -112,6 +190,11 @@ export default function EvaluateSubmissionPage() {
     if (question && marks > question.maxMarks) {
       setError(`Marks for Question ${questionNumber} cannot exceed ${question.maxMarks}`);
       return;
+    }
+    
+    // ✅ Track that this question was marked
+    if (!questionTimings.has(questionNumber)) {
+      handleQuestionFocus(questionNumber);
     }
     
     setQuestionMarks(prev =>
@@ -125,6 +208,11 @@ export default function EvaluateSubmissionPage() {
   };
 
   const handleCommentChange = (questionNumber: number, value: string) => {
+    // ✅ Track that this question was marked
+    if (!questionTimings.has(questionNumber)) {
+      handleQuestionFocus(questionNumber);
+    }
+    
     setQuestionMarks(prev =>
       prev.map(q =>
         q.questionNumber === questionNumber
@@ -140,6 +228,9 @@ export default function EvaluateSubmissionPage() {
       setError('');
       setSuccess('');
       
+      // ✅ Include session data even for drafts (optional tracking)
+      const sessionData = getSessionData();
+      
       const response = await fetch('/api/teacher/evaluate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -148,6 +239,8 @@ export default function EvaluateSubmissionPage() {
           questionMarks,
           remarks,
           isDraft: true,
+          // Optional for drafts, but good for tracking
+          ...sessionData,
         }),
       });
       
@@ -170,12 +263,10 @@ export default function EvaluateSubmissionPage() {
   const handleFinalize = async () => {
     try {
       // Validate all questions are marked
-    if (questionMarks.some(q => q.marksObtained < 0 || q.marksObtained > q.maxMarks)) {
-      setError('Invalid marks entered');
-      return;
-    }
-
-
+      if (questionMarks.some(q => q.marksObtained < 0 || q.marksObtained > q.maxMarks)) {
+        setError('Invalid marks entered');
+        return;
+      }
       
       const confirmed = confirm(
         `Are you sure you want to finalize this evaluation?\n\n` +
@@ -189,6 +280,21 @@ export default function EvaluateSubmissionPage() {
       setError('');
       setSuccess('');
       
+      // ✅ End timing for current question if active
+      if (currentQuestion !== null) {
+        handleQuestionBlur(currentQuestion);
+      }
+      
+      // ✅ Get session data with all timings
+      const sessionData = getSessionData();
+      
+      console.log('📊 Submitting evaluation with session data:', {
+        sessionStartTime: sessionData.sessionStartTime,
+        sessionEndTime: sessionData.sessionEndTime,
+        totalQuestions: sessionData.questionTimings.length,
+        totalTimeSeconds: sessionData.questionTimings.reduce((sum, t) => sum + t.timeSpent, 0),
+      });
+      
       const response = await fetch('/api/teacher/evaluate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -197,12 +303,15 @@ export default function EvaluateSubmissionPage() {
           questionMarks,
           remarks,
           isDraft: false,
+          // ✅ REQUIRED: Session tracking data
+          ...sessionData,
         }),
       });
       
       const data = await response.json();
       
       if (!response.ok) {
+        console.error('❌ Evaluation error:', data);
         throw new Error(data.error || 'Failed to finalize evaluation');
       }
       
@@ -234,7 +343,6 @@ export default function EvaluateSubmissionPage() {
     return submission.fileType === 'application/pdf' || 
            submission.answerSheetUrl.includes('data:application/pdf');
   };
-  
 
   // Open file in new window
   const openInNewWindow = () => {
@@ -389,6 +497,15 @@ export default function EvaluateSubmissionPage() {
                     {new Date(submission.uploadedAt).toLocaleDateString()}
                   </span>
                 </div>
+                {/* ✅ NEW: Show session time (for debugging) */}
+                {!isReadOnly && (
+                  <div className="flex justify-between pt-2 border-t border-secondary-200">
+                    <span className="text-secondary-600">Session Started:</span>
+                    <span className="font-medium text-xs">
+                      {sessionStartTime.toLocaleTimeString()}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -500,6 +617,7 @@ export default function EvaluateSubmissionPage() {
                   <div
                     key={qm.questionNumber}
                     className="p-4 bg-secondary-50 rounded-lg border border-secondary-200"
+                    onFocus={() => handleQuestionFocus(qm.questionNumber)}
                   >
                     <div className="flex justify-between items-start mb-3">
                       <div>
@@ -528,6 +646,8 @@ export default function EvaluateSubmissionPage() {
                           step="0.5"
                           value={qm.marksObtained}
                           onChange={(e) => handleMarksChange(qm.questionNumber, e.target.value)}
+                          onFocus={() => handleQuestionFocus(qm.questionNumber)}
+                          onBlur={() => handleQuestionBlur(qm.questionNumber)}
                           disabled={isReadOnly}
                           placeholder="0"
                         />
@@ -542,6 +662,8 @@ export default function EvaluateSubmissionPage() {
                           className="input"
                           value={qm.comment}
                           onChange={(e) => handleCommentChange(qm.questionNumber, e.target.value)}
+                          onFocus={() => handleQuestionFocus(qm.questionNumber)}
+                          onBlur={() => handleQuestionBlur(qm.questionNumber)}
                           disabled={isReadOnly}
                           placeholder="Add feedback..."
                         />

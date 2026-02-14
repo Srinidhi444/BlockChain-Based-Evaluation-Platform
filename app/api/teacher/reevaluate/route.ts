@@ -3,9 +3,19 @@ import connectDB from '@/lib/db/mongodb';
 import Grievance from '@/lib/db/models/Grievance';
 import Evaluation from '@/lib/db/models/Evaluation';
 import ReEvaluation from '@/lib/db/models/ReEvaluation';
+import Submission from '@/lib/db/models/Submission';
+import Test from '@/lib/db/models/Test';
 import User from '@/lib/db/models/User';
 import { getUserFromHeaders, isTeacher } from '@/lib/utils/auth';
 import { generateEvaluationHash } from '@/lib/utils/hash';
+import {
+  generateSessionId,
+  logEvaluationStart,
+  logQuestionMarked,
+  logReEvaluationComplete,
+} from '@/lib/utils/auditLogger';
+import { AuditEventType } from '@/lib/db/models/AuditLog';
+import { logAuditEvent } from '@/lib/utils/auditLogger';
 
 interface ReEvaluateRequest {
   grievanceId: string;
@@ -16,6 +26,17 @@ interface ReEvaluateRequest {
     comment?: string;
   }>;
   remarks?: string;
+  
+  // ✅ NEW: Audit tracking fields
+  sessionId?: string;
+  sessionStartTime?: string | Date;
+  sessionEndTime?: string | Date;
+  questionTimings?: Array<{
+    questionNumber: number;
+    timeSpent: number;
+    markedAt: string | Date;
+    sequenceOrder: number;
+  }>;
 }
 
 export async function POST(request: NextRequest) {
@@ -32,7 +53,15 @@ export async function POST(request: NextRequest) {
     
     // Parse request body
     const body: ReEvaluateRequest = await request.json();
-    const { grievanceId, questionMarks, remarks } = body;
+    const { 
+      grievanceId, 
+      questionMarks, 
+      remarks,
+      sessionId: clientSessionId,
+      sessionStartTime,
+      sessionEndTime,
+      questionTimings,
+    } = body;
     
     // Validate required fields
     if (!grievanceId || !questionMarks || questionMarks.length === 0) {
@@ -41,6 +70,14 @@ export async function POST(request: NextRequest) {
           error: 'Missing required fields',
           required: ['grievanceId', 'questionMarks']
         },
+        { status: 400 }
+      );
+    }
+    
+    // Validate session times for re-evaluation
+    if (!sessionStartTime || !sessionEndTime) {
+      return NextResponse.json(
+        { error: 'Session start and end times are required for re-evaluation' },
         { status: 400 }
       );
     }
@@ -95,6 +132,17 @@ export async function POST(request: NextRequest) {
       );
     }
     
+    // Get submission and test for audit context
+    const submission = await Submission.findOne({ submissionId: grievance.submissionId });
+    const test = await Test.findOne({ testId: grievance.testId });
+    
+    if (!submission || !test) {
+      return NextResponse.json(
+        { error: 'Submission or test not found' },
+        { status: 404 }
+      );
+    }
+    
     // Calculate new totals
     const newTotalMarksObtained = questionMarks.reduce(
       (sum, q) => sum + (q.marksObtained || 0), 
@@ -129,6 +177,38 @@ export async function POST(request: NextRequest) {
     };
     const resultHash = generateEvaluationHash(evaluationData);
     
+    // Generate session ID for audit tracking
+    const sessionId = clientSessionId || generateSessionId();
+    
+    // Get device info and IP for audit
+    const userAgent = request.headers.get('user-agent') || 'Unknown';
+    const deviceInfo = userAgent.substring(0, 200);
+    const ipAddress = request.headers.get('x-forwarded-for') || 
+                     request.headers.get('x-real-ip') || 
+                     'Unknown';
+    
+    // 📊 AUDIT: Log re-evaluation start
+    await logAuditEvent({
+      eventType: AuditEventType.REEVALUATION_STARTED,
+      userId: currentUser.userId,
+      userRole: 'teacher',
+      userName: teacher.name,
+      department: teacher.department,
+      sessionId,
+      submissionId: grievance.submissionId,
+      testId: grievance.testId,
+      studentId: grievance.studentId,
+      studentName: grievance.studentName,
+      grievanceId,
+      grievanceType: grievance.grievanceType,
+      subject: submission.subject,
+      year: submission.year,
+      division: submission.division,
+      academicYear: test.academicYear,
+      deviceInfo,
+      ipAddress,
+    });
+    
     // Generate re-evaluation ID
     const timestamp = Date.now();
     const reevaluationId = `REEVAL_${grievanceId}_${timestamp}`;
@@ -150,6 +230,40 @@ export async function POST(request: NextRequest) {
     
     const totalDifference = newTotalMarksObtained - originalEvaluation.totalMarksObtained;
     const percentageDifference = newPercentage - originalEvaluation.percentage;
+    
+    // 📊 AUDIT: Log question-by-question re-evaluation
+    if (questionTimings && questionTimings.length > 0) {
+      let cumulativeTime = 0;
+      
+      for (const timing of questionTimings) {
+        const questionMark = questionMarks.find(q => q.questionNumber === timing.questionNumber);
+        if (!questionMark) continue;
+        
+        cumulativeTime += timing.timeSpent || 0;
+        
+        await logAuditEvent({
+          eventType: AuditEventType.REEVALUATION_QUESTION_MARKED,
+          userId: currentUser.userId,
+          userRole: 'teacher',
+          userName: teacher.name,
+          department: teacher.department,
+          sessionId,
+          submissionId: grievance.submissionId,
+          testId: grievance.testId,
+          studentId: grievance.studentId,
+          evaluationId: reevaluationId,
+          grievanceId,
+          questionNumber: timing.questionNumber,
+          marksAwarded: questionMark.marksObtained,
+          maxMarks: questionMark.maxMarks,
+          comment: questionMark.comment,
+          timeSpent: timing.timeSpent || 0,
+          cumulativeTime,
+          questionSequence: timing.sequenceOrder || 0,
+          subject: submission.subject,
+        });
+      }
+    }
     
     // Create re-evaluation record
     const reevaluation = await ReEvaluation.create({
@@ -196,8 +310,54 @@ export async function POST(request: NextRequest) {
     });
     
     console.log('✅ Re-evaluation created:', reevaluationId);
+    console.log('   Original marks:', originalEvaluation.totalMarksObtained);
+    console.log('   New marks:', newTotalMarksObtained);
     console.log('   Total difference:', totalDifference);
     console.log('   Percentage difference:', percentageDifference.toFixed(2) + '%');
+    
+    // 📊 AUDIT: Log re-evaluation completion with comprehensive metrics
+    const questionMarksData = questionMarks.map((qm, index) => {
+      const timing = questionTimings?.find(t => t.questionNumber === qm.questionNumber) || {};
+      
+      return {
+        questionNumber: qm.questionNumber,
+        maxMarks: qm.maxMarks,
+        marksAwarded: qm.marksObtained,
+        comment: qm.comment || '',
+        timeSpent: timing.timeSpent || 0,
+        markedAt: timing.markedAt ? new Date(timing.markedAt) : new Date(),
+        sequenceOrder: timing.sequenceOrder || index + 1,
+      };
+    });
+    
+    await logReEvaluationComplete({
+      sessionData: {
+        evaluationId: reevaluationId,
+        submissionId: grievance.submissionId,
+        testId: grievance.testId,
+        teacherId: currentUser.userId,
+        teacherName: teacher.name,
+        studentId: grievance.studentId,
+        studentName: grievance.studentName,
+        department: teacher.department,
+        subject: submission.subject,
+        year: submission.year,
+        division: submission.division,
+        academicYear: test.academicYear,
+        sessionId,
+        sessionStartTime: new Date(sessionStartTime),
+        sessionEndTime: new Date(sessionEndTime),
+        questionMarks: questionMarksData,
+        totalMarksAwarded: newTotalMarksObtained,
+        totalMaxMarks: newTotalMarks,
+        isReevaluation: true,
+        originalEvaluationId: originalEvaluation.evaluationId,
+        grievanceId,
+      },
+      originalMarks: originalEvaluation.totalMarksObtained,
+      newMarks: newTotalMarksObtained,
+      originalTeacherId: originalEvaluation.teacherId,
+    });
     
     // Update grievance status
     grievance.status = 'completed';
@@ -230,6 +390,7 @@ export async function POST(request: NextRequest) {
             comparisonData: reevaluation.comparisonData,
             resultHash: reevaluation.resultHash,
           },
+          sessionId, // Return sessionId for client tracking
         },
       },
       { status: 201 }

@@ -183,6 +183,22 @@ export const questionMarkSchema = z.object({
   }
 );
 
+// ==================== Audit Schemas (NEW) ====================
+
+export const questionTimingSchema = z.object({
+  questionNumber: z.number()
+    .min(1, 'Question number must be at least 1'),
+  timeSpent: z.number()
+    .min(0, 'Time spent cannot be negative')
+    .max(3600, 'Time spent cannot exceed 1 hour per question'), // 1 hour max per question
+  markedAt: z.string()
+    .or(z.date())
+    .optional(),
+  sequenceOrder: z.number()
+    .min(1, 'Sequence order must be at least 1')
+    .optional()
+});
+
 export const createEvaluationSchema = z.object({
   submissionId: z.string()
     .min(1, 'Submission ID is required'),
@@ -191,7 +207,19 @@ export const createEvaluationSchema = z.object({
   remarks: z.string()
     .max(1000, 'Remarks cannot exceed 1000 characters')
     .optional(),
-  isDraft: z.boolean().default(true)
+  isDraft: z.boolean().default(true),
+  
+  // ✅ NEW: Audit tracking fields
+  sessionId: z.string()
+    .optional(),
+  sessionStartTime: z.string()
+    .or(z.date())
+    .optional(),
+  sessionEndTime: z.string()
+    .or(z.date())
+    .optional(),
+  questionTimings: z.array(questionTimingSchema)
+    .optional()
 }).refine(
   (data) => {
     // Validate unique question numbers
@@ -203,6 +231,33 @@ export const createEvaluationSchema = z.object({
     message: 'Question numbers must be unique',
     path: ['questionMarks']
   }
+).refine(
+  (data) => {
+    // If not draft, session times are required
+    if (!data.isDraft) {
+      return data.sessionStartTime && data.sessionEndTime;
+    }
+    return true;
+  },
+  {
+    message: 'Session start and end times are required for final submission',
+    path: ['isDraft']
+  }
+).refine(
+  (data) => {
+    // If question timings provided, they should match question marks
+    if (data.questionTimings && data.questionTimings.length > 0) {
+      const timingQuestions = data.questionTimings.map(t => t.questionNumber);
+      const markedQuestions = data.questionMarks.map(q => q.questionNumber);
+      
+      return timingQuestions.every(tq => markedQuestions.includes(tq));
+    }
+    return true;
+  },
+  {
+    message: 'Question timings must correspond to marked questions',
+    path: ['questionTimings']
+  }
 );
 
 export const updateQuestionMarkSchema = z.object({
@@ -210,6 +265,52 @@ export const updateQuestionMarkSchema = z.object({
   marksObtained: z.number().min(0),
   comment: z.string().max(500).optional()
 });
+
+// ==================== Grievance Schemas (NEW) ====================
+
+export const createGrievanceSchema = z.object({
+  submissionId: z.string()
+    .min(1, 'Submission ID is required'),
+  grievanceType: z.enum(['calculation_error', 'reevaluation']),
+  questionNumber: z.number()
+    .min(1)
+    .optional(),
+  explanation: z.string()
+    .min(20, 'Explanation must be at least 20 characters')
+    .max(1000, 'Explanation cannot exceed 1000 characters')
+    .trim()
+});
+
+export const createReEvaluationSchema = z.object({
+  grievanceId: z.string()
+    .min(1, 'Grievance ID is required'),
+  questionMarks: z.array(questionMarkSchema)
+    .min(1, 'At least one question must be evaluated'),
+  remarks: z.string()
+    .max(1000, 'Remarks cannot exceed 1000 characters')
+    .optional(),
+  
+  // ✅ Audit tracking fields
+  sessionId: z.string()
+    .optional(),
+  sessionStartTime: z.string()
+    .or(z.date())
+    .optional(),
+  sessionEndTime: z.string()
+    .or(z.date())
+    .optional(),
+  questionTimings: z.array(questionTimingSchema)
+    .optional()
+}).refine(
+  (data) => {
+    // Session times are required for re-evaluation
+    return data.sessionStartTime && data.sessionEndTime;
+  },
+  {
+    message: 'Session start and end times are required for re-evaluation',
+    path: ['sessionStartTime']
+  }
+);
 
 // ==================== File Upload Schemas ====================
 

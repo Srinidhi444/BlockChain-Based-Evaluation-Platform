@@ -6,6 +6,8 @@ import Evaluation from '@/lib/db/models/Evaluation';
 import User from '@/lib/db/models/User';
 import Test from '@/lib/db/models/Test';
 import { getUserFromHeaders } from '@/lib/utils/auth';
+import { logAuditEvent } from '@/lib/utils/auditLogger';
+import { AuditEventType } from '@/lib/db/models/AuditLog';
 
 interface FileGrievanceRequest {
     submissionId: string;
@@ -145,10 +147,12 @@ export async function POST(request: NextRequest) {
 
         // Determine assigned teacher based on grievance type
         let assignedTeacherId: string;
+        let assignedTeacherName: string;
 
         if (grievanceType === 'calculation_error') {
             // Same teacher
             assignedTeacherId = originalEvaluation.teacherId;
+            assignedTeacherName = originalEvaluation.teacherName;
         } else {
             // Find different teacher with same subject
             const otherTeachers = await User.find({
@@ -170,11 +174,19 @@ export async function POST(request: NextRequest) {
 
             // Assign to first available teacher (can be improved with load balancing)
             assignedTeacherId = otherTeachers[0].userId;
+            assignedTeacherName = otherTeachers[0].name;
         }
 
         // Generate grievance ID
         const timestamp = Date.now();
         const grievanceId = `GRV_${submissionId.toUpperCase()}_${timestamp}`;
+
+        // Get device info and IP for audit
+        const userAgent = request.headers.get('user-agent') || 'Unknown';
+        const deviceInfo = userAgent.substring(0, 200);
+        const ipAddress = request.headers.get('x-forwarded-for') || 
+                         request.headers.get('x-real-ip') || 
+                         'Unknown';
 
         // Create grievance
         const grievance = await Grievance.create({
@@ -182,7 +194,7 @@ export async function POST(request: NextRequest) {
             submissionId,
             testId: submission.testId,
             studentId: currentUser.userId,
-            studentName: currentStudent.name, // ✅ Fixed: Get from User model
+            studentName: currentStudent.name,
             grievanceType,
             questionNumber: questionNumber || undefined,
             explanation: explanation.trim(),
@@ -197,6 +209,34 @@ export async function POST(request: NextRequest) {
         console.log('   Type:', grievanceType);
         console.log('   Student:', currentStudent.name);
         console.log('   Assigned to:', assignedTeacherId);
+
+        // 📊 AUDIT: Log grievance filing
+        await logAuditEvent({
+            eventType: AuditEventType.GRIEVANCE_FILED,
+            userId: currentUser.userId,
+            userRole: 'student',
+            userName: currentStudent.name,
+            department: currentStudent.department,
+            submissionId,
+            testId: submission.testId,
+            evaluationId: originalEvaluation.evaluationId,
+            grievanceId,
+            grievanceType,
+            questionNumber: questionNumber || null,
+            originalTeacherId: originalEvaluation.teacherId,
+            assignedTeacherId,
+            subject: submission.subject,
+            year: submission.year,
+            division: submission.division,
+            academicYear: test.academicYear,
+            deviceInfo,
+            ipAddress,
+            metadata: {
+                originalMarks: originalEvaluation.totalMarksObtained,
+                originalPercentage: originalEvaluation.percentage,
+                explanationLength: explanation.length,
+            },
+        });
 
         return NextResponse.json(
             {
@@ -277,6 +317,28 @@ export async function GET(request: NextRequest) {
 
         // Fetch grievances
         const grievances = await Grievance.find(query).sort({ filedAt: -1 });
+
+        // 📊 AUDIT: Log grievance list access (optional, only if you want to track)
+        const userAgent = request.headers.get('user-agent') || 'Unknown';
+        const deviceInfo = userAgent.substring(0, 200);
+        const ipAddress = request.headers.get('x-forwarded-for') || 
+                         request.headers.get('x-real-ip') || 
+                         'Unknown';
+
+        await logAuditEvent({
+            eventType: AuditEventType.GRIEVANCE_LIST_ACCESSED,
+            userId: currentUser.userId,
+            userRole: 'student',
+            deviceInfo,
+            ipAddress,
+            metadata: {
+                filters: {
+                    status,
+                    submissionId,
+                },
+                resultCount: grievances.length,
+            },
+        });
 
         // If requesting single submission's grievance, return single object
         if (submissionId && grievances.length > 0) {

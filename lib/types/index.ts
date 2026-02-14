@@ -58,6 +58,7 @@ export interface ISubmission {
   subject: string;
   
   // File details
+  fileName: string; // Added for display
   answerSheetUrl: string; // PDF/Image URL
   fileHash: string; // SHA-256 hash for blockchain
   fileSize: number;
@@ -180,4 +181,35 @@ export interface FileUploadResult {
   hash: string;
   size: number;
   type: string;
+}
+
+// Add Student Types (NEW)
+export interface AddStudentRequest {
+  name: string;
+  email: string;
+  department: string;
+  year: number;
+  division: string;
+  subjects?: string[];
+}
+
+export interface AddStudentResponse {
+  success: boolean;
+  message: string;
+  data: {
+    student: {
+      userId: string;
+      name: string;
+      email: string;
+      department: string;
+      year: number;
+      division: string;
+      subjects: string[];
+    };
+    credentials: {
+      userId: string;
+      password: string;
+      emailSent: boolean;
+    };
+  };
 }

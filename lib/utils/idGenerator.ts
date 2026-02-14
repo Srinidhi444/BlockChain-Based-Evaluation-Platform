@@ -70,6 +70,31 @@ export function generateUserId(
 }
 
 /**
+ * Generate Student ID (Auto-incremented)
+ * Format: ST + YEAR + RANDOM_3_DIGITS
+ * Example: ST2026847
+ * 
+ * This generates a random student ID without database lookup
+ * The API will check for collisions and regenerate if needed
+ */
+export function generateStudentId(): string {
+  const year = new Date().getFullYear();
+  const randomNum = Math.floor(100 + Math.random() * 900); // 3 random digits (100-999)
+  return `ST${year}${randomNum}`;
+}
+
+/**
+ * Generate Teacher ID (Auto-incremented)
+ * Format: TCH + YEAR + RANDOM_3_DIGITS
+ * Example: TCH2026547
+ */
+export function generateTeacherId(): string {
+  const year = new Date().getFullYear();
+  const randomNum = Math.floor(100 + Math.random() * 900); // 3 random digits
+  return `TCH${year}${randomNum}`;
+}
+
+/**
  * Parse Test ID to extract components
  */
 export function parseTestId(testId: string): {

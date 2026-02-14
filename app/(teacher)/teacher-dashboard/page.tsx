@@ -73,6 +73,7 @@ export default function TeacherDashboard() {
 
   return (
     <div className="min-h-screen bg-secondary-50">
+      {/* Navigation Bar */}
       <nav className="bg-white shadow-sm border-b border-secondary-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
@@ -86,6 +87,9 @@ export default function TeacherDashboard() {
               <Link href="/evaluate" className="btn btn-outline">
                 Evaluate
               </Link>
+              <Link href="/add-students" className="btn btn-secondary">
+                ➕ Add Students
+              </Link>
               <button onClick={handleLogout} className="text-secondary-600 hover:text-secondary-900">
                 Logout
               </button>
@@ -94,7 +98,9 @@ export default function TeacherDashboard() {
         </div>
       </nav>
 
+      {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Welcome Section */}
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-secondary-900 mb-2">
             Welcome, {user?.name}!
@@ -104,6 +110,7 @@ export default function TeacherDashboard() {
           </p>
         </div>
 
+        {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="card bg-gradient-to-br from-primary-500 to-primary-600 text-white">
             <div className="text-3xl font-bold mb-2">{stats?.testsCreated || 0}</div>
@@ -126,7 +133,9 @@ export default function TeacherDashboard() {
           </div>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6">
+        {/* Quick Actions Grid */}
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Create Test Card */}
           <Link href="/create-test" className="card-hover text-center">
             <div className="text-4xl mb-3">📝</div>
             <h3 className="font-semibold text-lg mb-2">Create Test</h3>
@@ -135,6 +144,7 @@ export default function TeacherDashboard() {
             </p>
           </Link>
           
+          {/* Evaluate Card */}
           <Link href="/evaluate" className="card-hover text-center">
             <div className="text-4xl mb-3">✅</div>
             <h3 className="font-semibold text-lg mb-2">Evaluate</h3>
@@ -143,12 +153,63 @@ export default function TeacherDashboard() {
             </p>
           </Link>
           
+          {/* Add Students Card - NEW */}
+          <Link href="/add-students" className="card-hover text-center bg-gradient-to-br from-success-50 to-primary-50 border-2 border-success-200">
+            <div className="text-4xl mb-3">👥</div>
+            <h3 className="font-semibold text-lg mb-2 text-success-700">Add Students</h3>
+            <p className="text-sm text-secondary-600">
+              Register new students to the platform
+            </p>
+          </Link>
+          
+          {/* Analytics Card */}
           <div className="card text-center opacity-60">
             <div className="text-4xl mb-3">📊</div>
             <h3 className="font-semibold text-lg mb-2">Analytics</h3>
             <p className="text-sm text-secondary-600">
               Coming soon
             </p>
+          </div>
+        </div>
+
+        {/* Recent Activity Section - Optional */}
+        <div className="mt-8 card">
+          <h3 className="text-xl font-semibold text-secondary-900 mb-4">
+            Quick Links
+          </h3>
+          <div className="grid md:grid-cols-3 gap-4">
+            <Link 
+              href="/create-test"
+              className="flex items-center gap-3 p-3 rounded-lg hover:bg-secondary-50 transition-colors"
+            >
+              <span className="text-2xl">📝</span>
+              <div>
+                <p className="font-medium text-secondary-900">Create New Test</p>
+                <p className="text-xs text-secondary-600">Set up a new exam</p>
+              </div>
+            </Link>
+            
+            <Link 
+              href="/evaluate"
+              className="flex items-center gap-3 p-3 rounded-lg hover:bg-secondary-50 transition-colors"
+            >
+              <span className="text-2xl">✅</span>
+              <div>
+                <p className="font-medium text-secondary-900">Evaluate Submissions</p>
+                <p className="text-xs text-secondary-600">Mark answer sheets</p>
+              </div>
+            </Link>
+            
+            <Link 
+              href="/add-students"
+              className="flex items-center gap-3 p-3 rounded-lg hover:bg-success-50 transition-colors"
+            >
+              <span className="text-2xl">👥</span>
+              <div>
+                <p className="font-medium text-success-700">Add New Students</p>
+                <p className="text-xs text-secondary-600">Register students</p>
+              </div>
+            </Link>
           </div>
         </div>
       </div>

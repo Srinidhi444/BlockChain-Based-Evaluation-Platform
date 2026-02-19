@@ -117,3 +117,42 @@ else {
     throw err;
   }
 }
+export async function getSubmissionFromBlockchain(
+  blockchainExamId: number,
+  submissionId: string
+) {
+  let submissionIdBytes32: string;
+
+  // Normalize submissionId → bytes32
+  if (submissionId.startsWith("0X")) {
+    submissionIdBytes32 = "0x" + submissionId.slice(2);
+  } 
+  else if (submissionId.startsWith("0x")) {
+    submissionIdBytes32 = submissionId;
+  } 
+  else {
+    submissionIdBytes32 = ethers.keccak256(
+      ethers.toUtf8Bytes(submissionId)
+    );
+  }
+
+  try {
+    const result = await contract.getSubmission(
+      blockchainExamId,
+      submissionIdBytes32
+    );
+
+    return {
+      fileHash: result[0],
+      evaluationHash: result[1],
+      submittedAt: Number(result[2]),
+      evaluatedAt: Number(result[3]),
+      exists: result[2] > 0
+    };
+
+  } catch (err) {
+    console.error("Error fetching submission:", err);
+    throw err;
+  }
+}
+

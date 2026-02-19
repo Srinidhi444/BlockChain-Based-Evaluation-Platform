@@ -28,6 +28,7 @@ export function generateFileHashFromBase64(base64String: string): string {
  * Used to store immutable evaluation results on blockchain
  */
 import crypto from "crypto";
+import { getSubmissionFromBlockchain } from '../blockchain/examContract';
 
 export function generateEvaluationHash(evaluationData: {
   submissionId: string;
@@ -161,4 +162,52 @@ export async function fileToBase64(file: File): Promise<string> {
 export async function generateHashFromFile(file: File): Promise<string> {
   const arrayBuffer = await fileToArrayBuffer(file);
   return generateFileHash(arrayBuffer);
+}
+export async function verifyEvaluationOnBlockchain(params: {
+  blockchainExamId: number;
+  submissionId: string;
+  evaluationData: {
+    submissionId: string;
+    teacherId: string;
+    questionMarks: Array<{ questionNumber: number; marksObtained: number }>;
+    totalMarksObtained: number;
+    evaluatedAt: Date;
+  };
+}) {
+  const { blockchainExamId, submissionId, evaluationData } = params;
+
+  // 1) Recompute local evaluation hash
+  const rawHash = generateEvaluationHash(evaluationData);
+
+  // ✅ Normalize: add 0x prefix if not present
+  const recomputedHash = rawHash.startsWith('0x')
+    ? rawHash.toLowerCase()
+    : `0x${rawHash}`.toLowerCase();
+
+  // 2) Fetch on-chain record
+  const onChain = await getSubmissionFromBlockchain(
+    blockchainExamId,
+    submissionId
+  );
+
+  if (!onChain.exists) {
+    return {
+      status: 'not_found' as const,
+      recomputedHash,
+      onChainEvaluationHash: null as string | null,
+    };
+  }
+
+  // ✅ Normalize on-chain hash too
+  const onChainEvaluationHash = onChain.evaluationHash.startsWith('0x')
+    ? onChain.evaluationHash.toLowerCase()
+    : `0x${onChain.evaluationHash}`.toLowerCase();
+
+  const matches = recomputedHash === onChainEvaluationHash;
+
+  return {
+    status: matches ? ('verified' as const) : ('tampered' as const),
+    recomputedHash,
+    onChainEvaluationHash,
+  };
 }

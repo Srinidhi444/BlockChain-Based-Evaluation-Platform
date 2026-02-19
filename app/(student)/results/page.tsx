@@ -56,7 +56,6 @@ interface ReEvaluation {
   newRemarks?: string;
 }
 
-// ── NEW: blockchain verification types ──────────────────
 type BlockchainStatus = 'verified' | 'tampered' | 'not_found' | 'error' | 'loading' | 'idle';
 
 interface BlockchainVerification {
@@ -65,7 +64,17 @@ interface BlockchainVerification {
   onChainEvaluationHash?: string;
   message?: string;
 }
-// ────────────────────────────────────────────────────────
+
+// ── NEW: file hash verification types ──
+type FileHashStatus = 'verified' | 'tampered' | 'not_found' | 'error' | 'loading' | 'idle';
+
+interface FileHashVerification {
+  status: FileHashStatus;
+  recomputedHash?: string;
+  onChainFileHash?: string;
+  message?: string;
+}
+// ───────────────────────────────────────
 
 export default function ResultsPage() {
   const router = useRouter();
@@ -81,10 +90,13 @@ export default function ResultsPage() {
   const [loadingEvaluation, setLoadingEvaluation] = useState(false);
   const [error, setError] = useState('');
 
-  // ── NEW: blockchain state ──────────────────────────────
   const [blockchainVerification, setBlockchainVerification] =
     useState<BlockchainVerification>({ status: 'idle' });
-  // ──────────────────────────────────────────────────────
+
+  // ── NEW: file hash state ──
+  const [fileHashVerification, setFileHashVerification] =
+    useState<FileHashVerification>({ status: 'idle' });
+  // ─────────────────────────
 
   useEffect(() => {
     fetchSubmissions();
@@ -135,9 +147,10 @@ export default function ResultsPage() {
       setError('');
       setGrievance(null);
       setReEvaluation(null);
-      // ── NEW: reset blockchain on every new submission select ──
       setBlockchainVerification({ status: 'idle' });
-      // ──────────────────────────────────────────────────────────
+      // ── NEW: reset file hash on every new submission select ──
+      setFileHashVerification({ status: 'idle' });
+      // ─────────────────────────────────────────────────────────
 
       const response = await fetch(
         `/api/student/results?submissionId=${submission.submissionId}`
@@ -146,7 +159,6 @@ export default function ResultsPage() {
       const data = await response.json();
       setEvaluation(data.data.evaluation);
 
-      // Check grievance
       const grievanceResponse = await fetch(
         `/api/student/grievance?submissionId=${submission.submissionId}`
       );
@@ -176,7 +188,6 @@ export default function ResultsPage() {
     }
   };
 
-  // ── NEW: blockchain verify function ───────────────────
   const handleVerifyBlockchain = async () => {
     if (!selectedSubmission) return;
     setBlockchainVerification({ status: 'loading' });
@@ -198,9 +209,43 @@ export default function ResultsPage() {
       });
     }
   };
-  // ──────────────────────────────────────────────────────
 
-  // ── NEW: badge renderer ───────────────────────────────
+  // ── NEW: fetch answer sheet as blob → POST to verify-file ──
+  const handleVerifyFileHash = async () => {
+    if (!selectedSubmission) return;
+    setFileHashVerification({ status: 'loading' });
+    try {
+      // 1) Download the answer sheet from its URL
+      const fileRes = await fetch(selectedSubmission.answerSheetUrl);
+      if (!fileRes.ok) throw new Error('Could not fetch answer sheet file');
+      const blob = await fileRes.blob();
+
+      // 2) Send as FormData to the verify-file API
+      const formData = new FormData();
+      formData.append('submissionId', selectedSubmission.submissionId);
+      formData.append('file', blob, 'answersheet');
+
+      const res = await fetch('/api/student/verify-file', {
+        method: 'POST',
+        body:   formData,
+      });
+      const data = await res.json();
+
+      setFileHashVerification({
+        status:         data.status,
+        recomputedHash: data.recomputedHash,
+        onChainFileHash: data.onChainFileHash,
+        message:        data.message,
+      });
+    } catch (err: any) {
+      setFileHashVerification({
+        status:  'error',
+        message: err.message || 'File verification failed',
+      });
+    }
+  };
+  // ───────────────────────────────────────────────────────────
+
   const BlockchainBadge = () => {
     const { status, recomputedHash, onChainEvaluationHash, message } =
       blockchainVerification;
@@ -236,18 +281,13 @@ export default function ResultsPage() {
                           shadow-lg cursor-pointer">
             ✅ Verified on Blockchain
           </div>
-          {/* Hover tooltip with hashes */}
           <div className="absolute right-0 top-10 z-50 hidden group-hover:block 
                           bg-gray-900 text-white text-xs rounded-lg p-3 w-80 shadow-xl">
             <p className="font-bold text-green-400 mb-2">✅ Hashes Match</p>
             <p className="text-gray-400 mb-1">Recomputed:</p>
-            <p className="font-mono break-all text-green-300 mb-2">
-              {recomputedHash}
-            </p>
+            <p className="font-mono break-all text-green-300 mb-2">{recomputedHash}</p>
             <p className="text-gray-400 mb-1">On-chain:</p>
-            <p className="font-mono break-all text-green-300">
-              {onChainEvaluationHash}
-            </p>
+            <p className="font-mono break-all text-green-300">{onChainEvaluationHash}</p>
           </div>
         </div>
       );
@@ -261,18 +301,13 @@ export default function ResultsPage() {
                           shadow-lg cursor-pointer animate-pulse">
             ⚠️ Tampered!
           </div>
-          {/* Hover tooltip with hash mismatch */}
           <div className="absolute right-0 top-10 z-50 hidden group-hover:block 
                           bg-gray-900 text-white text-xs rounded-lg p-3 w-80 shadow-xl">
             <p className="font-bold text-red-400 mb-2">⚠️ Hash Mismatch Detected</p>
             <p className="text-gray-400 mb-1">Recomputed from DB:</p>
-            <p className="font-mono break-all text-yellow-300 mb-2">
-              {recomputedHash}
-            </p>
+            <p className="font-mono break-all text-yellow-300 mb-2">{recomputedHash}</p>
             <p className="text-gray-400 mb-1">On-chain stored:</p>
-            <p className="font-mono break-all text-red-400">
-              {onChainEvaluationHash}
-            </p>
+            <p className="font-mono break-all text-red-400">{onChainEvaluationHash}</p>
           </div>
         </div>
       );
@@ -287,7 +322,6 @@ export default function ResultsPage() {
       );
     }
 
-    // error
     return (
       <div className="flex items-center gap-2 bg-orange-500 text-white 
                       px-3 py-1.5 rounded-full text-sm font-semibold"
@@ -296,15 +330,105 @@ export default function ResultsPage() {
       </div>
     );
   };
-  // ──────────────────────────────────────────────────────
+
+  // ── NEW: File Hash Badge ──────────────────────────────────
+  const FileHashBadge = () => {
+    const { status, recomputedHash, onChainFileHash, message } =
+      fileHashVerification;
+
+    if (status === 'idle') {
+      return (
+        <button
+          onClick={handleVerifyFileHash}
+          className="btn btn-outline flex items-center justify-center gap-2 w-full"
+        >
+          🔒 Verify File Integrity
+        </button>
+      );
+    }
+
+    if (status === 'loading') {
+      return (
+        <button disabled
+          className="btn btn-outline flex items-center justify-center gap-2 w-full opacity-70"
+        >
+          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current" />
+          Verifying File...
+        </button>
+      );
+    }
+
+    if (status === 'verified') {
+      return (
+        <div className="group relative w-full">
+          <div className="flex items-center justify-center gap-2 w-full
+                          bg-green-100 text-green-800 border border-green-300
+                          px-4 py-2 rounded-lg text-sm font-semibold cursor-pointer">
+            ✅ File Integrity Verified
+          </div>
+          {/* Hover tooltip */}
+          <div className="absolute left-0 bottom-12 z-50 hidden group-hover:block
+                          bg-gray-900 text-white text-xs rounded-lg p-3 w-full shadow-xl">
+            <p className="font-bold text-green-400 mb-2">✅ File Hashes Match</p>
+            <p className="text-gray-400 mb-1">Recomputed:</p>
+            <p className="font-mono break-all text-green-300 mb-2">{recomputedHash}</p>
+            <p className="text-gray-400 mb-1">On-chain:</p>
+            <p className="font-mono break-all text-green-300">{onChainFileHash}</p>
+          </div>
+        </div>
+      );
+    }
+
+    if (status === 'tampered') {
+      return (
+        <div className="group relative w-full">
+          <div className="flex items-center justify-center gap-2 w-full
+                          bg-red-100 text-red-800 border border-red-300
+                          px-4 py-2 rounded-lg text-sm font-semibold cursor-pointer animate-pulse">
+            ⚠️ File Has Been Tampered!
+          </div>
+          {/* Hover tooltip */}
+          <div className="absolute left-0 bottom-12 z-50 hidden group-hover:block
+                          bg-gray-900 text-white text-xs rounded-lg p-3 w-full shadow-xl">
+            <p className="font-bold text-red-400 mb-2">⚠️ File Hash Mismatch</p>
+            <p className="text-gray-400 mb-1">Recomputed from file:</p>
+            <p className="font-mono break-all text-yellow-300 mb-2">{recomputedHash}</p>
+            <p className="text-gray-400 mb-1">On-chain stored:</p>
+            <p className="font-mono break-all text-red-400">{onChainFileHash}</p>
+          </div>
+        </div>
+      );
+    }
+
+    if (status === 'not_found') {
+      return (
+        <div className="flex items-center justify-center gap-2 w-full
+                        bg-gray-100 text-gray-600 border border-gray-300
+                        px-4 py-2 rounded-lg text-sm font-semibold">
+          📋 File Not on Blockchain
+        </div>
+      );
+    }
+
+    // error
+    return (
+      <div className="flex items-center justify-center gap-2 w-full
+                      bg-orange-100 text-orange-800 border border-orange-300
+                      px-4 py-2 rounded-lg text-sm font-semibold"
+           title={message}>
+        ❌ File Verification Failed
+      </div>
+    );
+  };
+  // ─────────────────────────────────────────────────────────
 
   const getGrade = (percentage: number) => {
     if (percentage >= 90) return { grade: 'A+', color: 'text-success-600' };
-    if (percentage >= 80) return { grade: 'A', color: 'text-success-600' };
+    if (percentage >= 80) return { grade: 'A',  color: 'text-success-600' };
     if (percentage >= 70) return { grade: 'B+', color: 'text-success-500' };
-    if (percentage >= 60) return { grade: 'B', color: 'text-primary-600' };
-    if (percentage >= 50) return { grade: 'C', color: 'text-warning-600' };
-    if (percentage >= 40) return { grade: 'D', color: 'text-warning-700' };
+    if (percentage >= 60) return { grade: 'B',  color: 'text-primary-600' };
+    if (percentage >= 50) return { grade: 'C',  color: 'text-warning-600' };
+    if (percentage >= 40) return { grade: 'D',  color: 'text-warning-700' };
     return { grade: 'F', color: 'text-danger-600' };
   };
 
@@ -313,7 +437,7 @@ export default function ResultsPage() {
       pending:     { text: 'Pending Review', class: 'bg-warning-100 text-warning-800' },
       in_progress: { text: 'In Progress',    class: 'bg-primary-100 text-primary-800' },
       completed:   { text: 'Completed',      class: 'bg-success-100 text-success-800' },
-      rejected:    { text: 'Rejected',       class: 'bg-danger-100 text-danger-800' },
+      rejected:    { text: 'Rejected',       class: 'bg-danger-100 text-danger-800'   },
     };
     return badges[status as keyof typeof badges] || badges.pending;
   };
@@ -500,16 +624,14 @@ export default function ResultsPage() {
                   </div>
                 )}
 
-                {/* ── Score Card (with blockchain badge) ── */}
+                {/* Score Card */}
                 <div className="card bg-gradient-to-br from-primary-500 to-primary-600 text-white">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold">
                       {reevaluation ? 'Current Score (After Re-evaluation)' : 'Your Score'}
                     </h3>
                     <div className="flex items-center gap-2">
-                      {/* ── NEW: Blockchain badge lives here ── */}
                       <BlockchainBadge />
-                      {/* ───────────────────────────────────── */}
                       {!grievance && !reevaluation && (
                         <Link
                           href={`/grievance/${selectedSubmission.submissionId}`}
@@ -644,17 +766,25 @@ export default function ResultsPage() {
                   </div>
                 </div>
 
-                {/* Answer Sheet */}
+                {/* ── Answer Sheet + File Integrity side by side ── */}
                 <div className="card">
-                  <a
-                    href={selectedSubmission.answerSheetUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn btn-outline w-full"
-                  >
-                    📄 View Submitted Answer Sheet
-                  </a>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <a
+                      href={selectedSubmission.answerSheetUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-outline flex-1 text-center"
+                    >
+                      📄 View Submitted Answer Sheet
+                    </a>
+                    {/* ── NEW: File Integrity Badge ── */}
+                    <div className="flex-1">
+                      <FileHashBadge />
+                    </div>
+                    {/* ──────────────────────────────── */}
+                  </div>
                 </div>
+                {/* ─────────────────────────────────────────────── */}
 
               </div>
             ) : (

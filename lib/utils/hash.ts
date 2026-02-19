@@ -211,3 +211,46 @@ export async function verifyEvaluationOnBlockchain(params: {
     onChainEvaluationHash,
   };
 }
+
+export async function verifyFileHashOnBlockchain(params: {
+  blockchainExamId: number;
+  submissionId: string;
+  fileBuffer: ArrayBuffer;
+}) {
+  const { blockchainExamId, submissionId, fileBuffer } = params;
+
+  // 1) Recompute local file hash from buffer
+  const rawHash = generateFileHash(fileBuffer);
+
+  // ✅ Normalize: add 0x prefix if not present
+  const recomputedHash = rawHash.startsWith('0x')
+    ? rawHash.toLowerCase()
+    : `0x${rawHash}`.toLowerCase();
+
+  // 2) Fetch on-chain record
+  const onChain = await getSubmissionFromBlockchain(
+    blockchainExamId,
+    submissionId
+  );
+
+  if (!onChain.exists) {
+    return {
+      status: 'not_found' as const,
+      recomputedHash,
+      onChainFileHash: null as string | null,
+    };
+  }
+
+  // ✅ Normalize on-chain hash too
+  const onChainFileHash = onChain.fileHash.startsWith('0x')
+    ? onChain.fileHash.toLowerCase()
+    : `0x${onChain.fileHash}`.toLowerCase();
+
+  const matches = recomputedHash === onChainFileHash;
+
+  return {
+    status: matches ? ('verified' as const) : ('tampered' as const),
+    recomputedHash,
+    onChainFileHash,
+  };
+}

@@ -387,7 +387,6 @@ export default function FileGrievancePage() {
                         required
                       >
                         <option value="">Select Type</option>
-                        <option value="calculation_error">Calculation Error (Same Teacher)</option>
                         <option value="reevaluation">Re-evaluation Request (Different Teacher)</option>
                       </select>
                     </div>

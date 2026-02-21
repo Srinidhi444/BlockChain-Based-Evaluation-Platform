@@ -11,6 +11,7 @@ interface Grievance {
   grievanceId: string; submissionId: string; studentName: string;
   grievanceType: 'calculation_error' | 'reevaluation'; questionNumber?: number;
   explanation: string; status: string; filedAt: string;
+  reevaluationId?: string; completedAt?: string;
 }
 interface Test {
   title: string; subject: string; totalMarks: number;
@@ -23,6 +24,23 @@ interface Submission {
 interface OriginalEvaluation {
   evaluationId: string; teacherName: string; questionMarks: QuestionMark[];
   totalMarksObtained: number; totalMarks: number; percentage: number; remarks?: string;
+}
+interface ReEvaluationData {
+  reevaluationId: string;
+  newTeacherName: string;
+  newQuestionMarks: QuestionMark[];
+  newTotalMarksObtained: number;
+  newTotalMarks: number;
+  newPercentage: number;
+  newRemarks: string;
+  newEvaluatedAt: string;
+  totalDifference: number;
+  percentageDifference: number;
+  comparisonData: Array<{
+    questionNumber: number; maxMarks: number;
+    oldMarksObtained: number; newMarksObtained: number;
+    difference: number;
+  }>;
 }
 interface QuestionTiming {
   questionNumber: number; startTime: Date; endTime?: Date;
@@ -49,7 +67,6 @@ function DashCursor() {
   return (<><div ref={dotRef} className="c-dot" /><div ref={ringRef} className="c-ring" /></>);
 }
 
-/* ─── Shared dark input style ─── */
 const baseInput: React.CSSProperties = {
   width: '100%', background: 'rgba(255,255,255,0.04)',
   border: '1px solid rgba(255,255,255,0.1)', borderRadius: 9,
@@ -80,11 +97,11 @@ function DarkTextarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) 
   );
 }
 
-/* ─── Nav back ─── */
 function NavBack({ href, label }: { href: string; label: string }) {
   const [h, setH] = useState(false);
   return (
-    <Link href={href} style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.85rem', fontWeight: 600, color: h ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.45)', textDecoration: 'none', transition: 'color 0.2s' }}
+    <Link href={href}
+      style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.85rem', fontWeight: 600, color: h ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.45)', textDecoration: 'none', transition: 'color 0.2s' }}
       onMouseEnter={() => setH(true)} onMouseLeave={() => setH(false)}>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
         <path d="M19 12H5M12 19l-7-7 7-7"/>
@@ -94,7 +111,6 @@ function NavBack({ href, label }: { href: string; label: string }) {
   );
 }
 
-/* ─── Section header ─── */
 function SectionHeader({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.35)', marginBottom: '0.9rem' }}>
@@ -103,7 +119,6 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
   );
 }
 
-/* ─── Meta row ─── */
 function MetaRow({ label, value, mono }: { label: string; value: React.ReactNode; mono?: boolean }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
@@ -119,16 +134,17 @@ export default function ReEvaluatePage() {
   const params = useParams();
   const grievanceId = params.grievanceId as string;
 
-  const [grievance, setGrievance]             = useState<Grievance | null>(null);
-  const [test, setTest]                       = useState<Test | null>(null);
-  const [submission, setSubmission]           = useState<Submission | null>(null);
+  const [grievance, setGrievance]                   = useState<Grievance | null>(null);
+  const [test, setTest]                             = useState<Test | null>(null);
+  const [submission, setSubmission]                 = useState<Submission | null>(null);
   const [originalEvaluation, setOriginalEvaluation] = useState<OriginalEvaluation | null>(null);
-  const [questionMarks, setQuestionMarks]     = useState<QuestionMark[]>([]);
-  const [remarks, setRemarks]                 = useState('');
-  const [loading, setLoading]                 = useState(true);
-  const [saving, setSaving]                   = useState(false);
-  const [error, setError]                     = useState('');
-  const [success, setSuccess]                 = useState('');
+  const [reevaluation, setReevaluation]             = useState<ReEvaluationData | null>(null);
+  const [questionMarks, setQuestionMarks]           = useState<QuestionMark[]>([]);
+  const [remarks, setRemarks]                       = useState('');
+  const [loading, setLoading]                       = useState(true);
+  const [saving, setSaving]                         = useState(false);
+  const [error, setError]                           = useState('');
+  const [success, setSuccess]                       = useState('');
 
   const [sessionStartTime]   = useState<Date>(() => new Date());
   const [questionTimings, setQuestionTimings] = useState<Map<number, QuestionTiming>>(new Map());
@@ -147,17 +163,38 @@ export default function ReEvaluatePage() {
     try {
       setLoading(true);
       const res = await fetch(`/api/teacher/grievance-details?grievanceId=${grievanceId}`);
-      if (!res.ok) { if (res.status === 401) { router.push('/login'); return; } throw new Error('Failed to fetch grievance details'); }
+      if (!res.ok) {
+        if (res.status === 401) { router.push('/login'); return; }
+        throw new Error('Failed to fetch grievance details');
+      }
       const data = await res.json();
+
       setGrievance(data.data.grievance);
       setTest(data.data.test);
       setSubmission(data.data.submission);
       setOriginalEvaluation(data.data.originalEvaluation);
-      setQuestionMarks(data.data.originalEvaluation.questionMarks.map((q: QuestionMark) => ({
-        questionNumber: q.questionNumber, maxMarks: q.maxMarks, marksObtained: q.marksObtained, comment: q.comment || '',
+
+      const reeval: ReEvaluationData | null = data.data.reevaluation ?? null;
+      setReevaluation(reeval);
+
+      // ✅ If re-evaluation exists → show its saved new marks
+      //    Otherwise              → show original marks for editing
+      const marksSource = reeval?.newQuestionMarks ?? data.data.originalEvaluation.questionMarks;
+      setQuestionMarks(marksSource.map((q: QuestionMark) => ({
+        questionNumber: q.questionNumber,
+        maxMarks:       q.maxMarks,
+        marksObtained:  q.marksObtained,
+        comment:        q.comment || '',
       })));
-    } catch (err: any) { setError(err.message || 'Failed to load grievance data'); }
-    finally { setLoading(false); }
+
+      // ✅ Restore saved remarks if re-evaluation exists
+      if (reeval?.newRemarks) setRemarks(reeval.newRemarks);
+
+    } catch (err: any) {
+      setError(err.message || 'Failed to load grievance data');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleQuestionFocus = (qn: number) => {
@@ -200,7 +237,9 @@ export default function ReEvaluatePage() {
   };
 
   const handleSubmit = async () => {
-    if (questionMarks.some(q => q.marksObtained === undefined || q.marksObtained === null)) { setError('Please mark all questions before submitting'); return; }
+    if (questionMarks.some(q => q.marksObtained === undefined || q.marksObtained === null)) {
+      setError('Please mark all questions before submitting'); return;
+    }
     const confirmed = confirm(
       `Submit re-evaluation?\n\nOriginal: ${originalTotal}/${totalMarks} (${originalEvaluation?.percentage.toFixed(2)}%)\nNew: ${totalMarksObtained}/${totalMarks} (${percentage.toFixed(2)}%)\nDifference: ${difference > 0 ? '+' : ''}${difference} marks\n\nThis action cannot be undone.`
     );
@@ -213,14 +252,26 @@ export default function ReEvaluatePage() {
         body: JSON.stringify({ grievanceId, questionMarks, remarks, ...getSessionData() }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to submit re-evaluation');
+      if (!res.ok) {
+        if (res.status === 409) {
+          setSuccess('Re-evaluation was already submitted. Redirecting…');
+          setTimeout(() => router.push('/grievances'), 2000);
+          return;
+        }
+        console.error('❌ Re-evaluation error:', data);
+        throw new Error(data.error || 'Failed to submit re-evaluation');
+      }
       setSuccess('Re-evaluation submitted! Redirecting…');
       setTimeout(() => router.push('/grievances'), 2000);
-    } catch (err: any) { setError(err.message || 'Failed to submit re-evaluation'); }
-    finally { setSaving(false); }
+    } catch (err: any) {
+      setError(err.message || 'Failed to submit re-evaluation');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const isPDF = (sub: Submission) => sub.fileType === 'application/pdf' || sub.answerSheetUrl.includes('data:application/pdf');
+  const isPDF = (sub: Submission) =>
+    sub.fileType === 'application/pdf' || sub.answerSheetUrl.includes('data:application/pdf');
 
   const openInNewWindow = () => {
     if (!submission) return;
@@ -268,7 +319,12 @@ export default function ReEvaluatePage() {
     </>
   );
 
-  const isReadOnly = grievance.status === 'completed';
+  // ✅ isReadOnly: true if grievance is completed/resolved OR a reevaluation doc exists
+  const isReadOnly =
+    grievance.status === 'completed' ||
+    grievance.status === 'resolved'  ||
+    !!grievance.reevaluationId       ||
+    !!reevaluation;
 
   return (
     <>
@@ -320,15 +376,19 @@ export default function ReEvaluatePage() {
               <div className="fade-up" style={{ background: '#090909', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '1.3rem 1.4rem' }}>
                 <SectionHeader>Grievance Details</SectionHeader>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1rem' }}>
-                  <MetaRow label="Type"     value={grievance.grievanceType === 'calculation_error' ? 'Calculation Error' : 'Re-evaluation Request'} />
-                  <MetaRow label="Student"  value={grievance.studentName} />
-                  <MetaRow label="Test"     value={test.title} />
+                  <MetaRow label="Type"    value={grievance.grievanceType === 'calculation_error' ? 'Calculation Error' : 'Re-evaluation Request'} />
+                  <MetaRow label="Student" value={grievance.studentName} />
+                  <MetaRow label="Test"    value={test.title} />
                   {grievance.questionNumber && <MetaRow label="Question" value={`#${grievance.questionNumber}`} />}
-                  <MetaRow label="Filed"    value={new Date(grievance.filedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} />
+                  <MetaRow label="Filed"   value={new Date(grievance.filedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} />
+                  {grievance.completedAt && (
+                    <MetaRow label="Completed" value={new Date(grievance.completedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })} />
+                  )}
+                  {reevaluation && (
+                    <MetaRow label="Re-evaluated by" value={reevaluation.newTeacherName} />
+                  )}
                   {!isReadOnly && <MetaRow label="Session" value={sessionStartTime.toLocaleTimeString()} />}
                 </div>
-
-                {/* Student explanation */}
                 <div style={{ background: 'rgba(251,191,36,0.07)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: 10, padding: '0.85rem 1rem' }}>
                   <div style={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: 'rgba(253,224,71,0.7)', marginBottom: '0.45rem' }}>
                     Student's Explanation
@@ -342,8 +402,6 @@ export default function ReEvaluatePage() {
               {/* Original evaluation */}
               <div className="fade-up" style={{ background: '#090909', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '1.3rem 1.4rem' }}>
                 <SectionHeader>Original Evaluation</SectionHeader>
-
-                {/* Score block */}
                 <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: '1rem', marginBottom: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div>
                     <div style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.3)', marginBottom: '0.3rem' }}>Original Score</div>
@@ -357,13 +415,14 @@ export default function ReEvaluatePage() {
                     <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'rgba(255,255,255,0.55)' }}>{originalEvaluation.teacherName}</div>
                   </div>
                 </div>
-
-                {/* Per-question original marks */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
                   {originalEvaluation.questionMarks.map(q => {
                     const isHighlighted = grievance.questionNumber === q.questionNumber;
+                    // Show per-question difference if reevaluation exists
+                    const cmpQ = reevaluation?.comparisonData?.find(c => c.questionNumber === q.questionNumber);
                     return (
-                      <div key={q.questionNumber} style={{ background: isHighlighted ? 'rgba(251,191,36,0.07)' : 'rgba(255,255,255,0.025)', border: `1px solid ${isHighlighted ? 'rgba(251,191,36,0.25)' : 'rgba(255,255,255,0.07)'}`, borderRadius: 9, padding: '0.6rem 0.9rem', position: 'relative', overflow: 'hidden' }}>
+                      <div key={q.questionNumber}
+                        style={{ background: isHighlighted ? 'rgba(251,191,36,0.07)' : 'rgba(255,255,255,0.025)', border: `1px solid ${isHighlighted ? 'rgba(251,191,36,0.25)' : 'rgba(255,255,255,0.07)'}`, borderRadius: 9, padding: '0.6rem 0.9rem', position: 'relative', overflow: 'hidden' }}>
                         {isHighlighted && <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: 'rgba(253,224,71,0.8)', boxShadow: '0 0 6px rgba(253,224,71,0.4)' }} />}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -372,9 +431,16 @@ export default function ReEvaluatePage() {
                             </span>
                             {q.comment && <span style={{ fontSize: '0.72rem', fontStyle: 'italic', color: 'rgba(255,255,255,0.35)' }}>"{q.comment}"</span>}
                           </div>
-                          <span style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: '1.1rem', color: isHighlighted ? 'rgba(253,224,71,0.9)' : 'rgba(255,255,255,0.6)' }}>
-                            {q.marksObtained}<span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.3)' }}>/{q.maxMarks}</span>
-                          </span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            {cmpQ && cmpQ.difference !== 0 && (
+                              <span style={{ fontSize: '0.72rem', fontWeight: 800, color: cmpQ.difference > 0 ? 'rgba(74,222,128,0.8)' : 'rgba(252,165,165,0.8)' }}>
+                                {cmpQ.difference > 0 ? '+' : ''}{cmpQ.difference}
+                              </span>
+                            )}
+                            <span style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: '1.1rem', color: isHighlighted ? 'rgba(253,224,71,0.9)' : 'rgba(255,255,255,0.6)' }}>
+                              {q.marksObtained}<span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.3)' }}>/{q.maxMarks}</span>
+                            </span>
+                          </div>
                         </div>
                       </div>
                     );
@@ -401,7 +467,6 @@ export default function ReEvaluatePage() {
             {/* ══ RIGHT ══ */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
-              {/* Error / Success */}
               {error && (
                 <div style={{ padding: '0.85rem 1rem', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, display: 'flex', gap: '0.5rem' }}>
                   <span style={{ flexShrink: 0 }}>⚠️</span>
@@ -421,14 +486,9 @@ export default function ReEvaluatePage() {
                 <SectionHeader>Score Comparison</SectionHeader>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '0.75rem', marginBottom: '1rem' }}>
                   {[
-                    { label: 'Original', val: `${originalTotal}`, sub: `/${totalMarks}`, color: 'rgba(255,255,255,0.7)' },
-                    { label: 'New',      val: `${totalMarksObtained}`, sub: `/${totalMarks}`, color: 'rgba(255,255,255,0.9)' },
-                    {
-                      label: 'Difference',
-                      val: `${difference > 0 ? '+' : ''}${difference}`,
-                      sub: `${percentageDiff > 0 ? '+' : ''}${percentageDiff.toFixed(1)}%`,
-                      color: difference > 0 ? 'rgba(74,222,128,1)' : difference < 0 ? 'rgba(252,165,165,1)' : 'rgba(255,255,255,0.5)',
-                    },
+                    { label: 'Original',   val: `${originalTotal}`,                          sub: `/${totalMarks}`,                                                    color: 'rgba(255,255,255,0.7)' },
+                    { label: isReadOnly && reevaluation ? 'Re-evaluated' : 'New', val: `${totalMarksObtained}`, sub: `/${totalMarks}`, color: 'rgba(255,255,255,0.9)' },
+                    { label: 'Difference', val: `${difference > 0 ? '+' : ''}${difference}`, sub: `${percentageDiff > 0 ? '+' : ''}${percentageDiff.toFixed(1)}%`,    color: difference > 0 ? 'rgba(74,222,128,1)' : difference < 0 ? 'rgba(252,165,165,1)' : 'rgba(255,255,255,0.5)' },
                   ].map(s => (
                     <div key={s.label} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: '0.85rem 0.5rem', textAlign: 'center' }}>
                       <div style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.3)', marginBottom: '0.4rem' }}>{s.label}</div>
@@ -437,26 +497,29 @@ export default function ReEvaluatePage() {
                     </div>
                   ))}
                 </div>
-                {/* Comparison bar */}
-                <div style={{ height: 4, borderRadius: 100, background: 'rgba(255,255,255,0.07)', overflow: 'hidden', position: 'relative' }}>
-                  <div style={{ height: '100%', borderRadius: 100, width: `${(originalTotal / totalMarks) * 100}%`, background: 'rgba(255,255,255,0.25)', transition: 'width 0.4s ease' }} />
+                <div style={{ height: 4, borderRadius: 100, background: 'rgba(255,255,255,0.07)', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', borderRadius: 100, width: `${(originalTotal / (totalMarks || 1)) * 100}%`, background: 'rgba(255,255,255,0.25)', transition: 'width 0.4s ease' }} />
                 </div>
                 <div style={{ height: 4, borderRadius: 100, background: 'rgba(255,255,255,0.04)', overflow: 'hidden', marginTop: '0.35rem' }}>
-                  <div style={{ height: '100%', borderRadius: 100, width: `${(totalMarksObtained / totalMarks) * 100}%`, background: difference >= 0 ? 'rgba(34,197,94,0.7)' : 'rgba(239,68,68,0.7)', transition: 'width 0.4s ease' }} />
+                  <div style={{ height: '100%', borderRadius: 100, width: `${(totalMarksObtained / (totalMarks || 1)) * 100}%`, background: difference >= 0 ? 'rgba(34,197,94,0.7)' : 'rgba(239,68,68,0.7)', transition: 'width 0.4s ease' }} />
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.3rem' }}>
                   <span style={{ fontSize: '0.62rem', fontWeight: 600, color: 'rgba(255,255,255,0.25)' }}>Original</span>
-                  <span style={{ fontSize: '0.62rem', fontWeight: 600, color: difference >= 0 ? 'rgba(74,222,128,0.6)' : 'rgba(252,165,165,0.6)' }}>New</span>
+                  <span style={{ fontSize: '0.62rem', fontWeight: 600, color: difference >= 0 ? 'rgba(74,222,128,0.6)' : 'rgba(252,165,165,0.6)' }}>
+                    {isReadOnly && reevaluation ? 'Re-evaluated' : 'New'}
+                  </span>
                 </div>
               </div>
 
-              {/* Q-wise re-marking */}
+              {/* Q-wise marks — shows new marks when read-only, editable when not */}
               <div className="fade-up3" style={{ background: '#090909', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '1.4rem' }}>
-                <SectionHeader>Re-evaluation Marks</SectionHeader>
+                <SectionHeader>
+                  {isReadOnly && reevaluation ? 'Re-evaluation Marks' : 'Re-evaluation Marks'}
+                </SectionHeader>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   {questionMarks.map((qm, idx) => {
                     const origQ = originalEvaluation.questionMarks.find(q => q.questionNumber === qm.questionNumber);
-                    const diff = qm.marksObtained - (origQ?.marksObtained || 0);
+                    const diff  = qm.marksObtained - (origQ?.marksObtained || 0);
                     const ratio = qm.marksObtained / qm.maxMarks;
                     const barColor = ratio >= 0.7 ? 'rgba(34,197,94,0.8)' : ratio >= 0.4 ? 'rgba(251,191,36,0.8)' : 'rgba(239,68,68,0.8)';
                     const isHighlighted = grievance.questionNumber === qm.questionNumber;
@@ -467,10 +530,7 @@ export default function ReEvaluatePage() {
                         style={{ background: isHighlighted ? 'rgba(251,191,36,0.05)' : 'rgba(255,255,255,0.025)', border: `1px solid ${isHighlighted ? 'rgba(251,191,36,0.2)' : 'rgba(255,255,255,0.07)'}`, borderRadius: 11, padding: '1rem 1.1rem', position: 'relative', overflow: 'hidden' }}
                         onFocus={() => handleQuestionFocus(qm.questionNumber)}
                       >
-                        {/* Left accent */}
                         <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: isHighlighted ? 'rgba(253,224,71,0.7)' : barColor, boxShadow: isHighlighted ? '0 0 6px rgba(253,224,71,0.4)' : 'none', borderRadius: '11px 0 0 11px' }} />
-
-                        {/* Header row */}
                         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             <div style={{ width: 28, height: 28, borderRadius: 7, background: isHighlighted ? 'rgba(251,191,36,0.12)' : 'rgba(255,255,255,0.05)', border: `1px solid ${isHighlighted ? 'rgba(251,191,36,0.3)' : 'rgba(255,255,255,0.1)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Bebas Neue',sans-serif", fontSize: '0.95rem', color: isHighlighted ? 'rgba(253,224,71,0.8)' : 'rgba(255,255,255,0.5)' }}>
@@ -492,8 +552,6 @@ export default function ReEvaluatePage() {
                             )}
                           </div>
                         </div>
-
-                        {/* Inputs */}
                         <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr', gap: '0.65rem', marginBottom: '0.65rem' }}>
                           <div>
                             <div style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.06em', color: 'rgba(255,255,255,0.3)', marginBottom: '0.35rem', textTransform: 'uppercase' as const }}>Marks</div>
@@ -518,8 +576,6 @@ export default function ReEvaluatePage() {
                             />
                           </div>
                         </div>
-
-                        {/* Progress bar */}
                         <div style={{ height: 4, borderRadius: 100, background: 'rgba(255,255,255,0.07)', overflow: 'hidden' }}>
                           <div style={{ height: '100%', borderRadius: 100, width: `${Math.min(ratio * 100, 100)}%`, background: barColor, transition: 'width 0.4s ease' }} />
                         </div>
@@ -531,23 +587,65 @@ export default function ReEvaluatePage() {
 
               {/* General remarks */}
               <div style={{ background: '#090909', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '1.4rem' }}>
-                <SectionHeader>General Remarks <span style={{ fontWeight: 500, letterSpacing: 0, textTransform: 'none' as const, color: 'rgba(255,255,255,0.2)', fontSize: '0.65rem' }}>(optional)</span></SectionHeader>
+                <SectionHeader>
+                  General Remarks{' '}
+                  {!isReadOnly && <span style={{ fontWeight: 500, letterSpacing: 0, textTransform: 'none' as const, color: 'rgba(255,255,255,0.2)', fontSize: '0.65rem' }}>(optional)</span>}
+                </SectionHeader>
                 <DarkTextarea
                   value={remarks}
                   onChange={e => setRemarks(e.target.value)}
                   disabled={isReadOnly}
-                  placeholder="Add overall feedback for the re-evaluation…"
+                  placeholder={isReadOnly ? (remarks || 'No remarks added') : 'Add overall feedback for the re-evaluation…'}
                 />
               </div>
 
-              {/* Actions */}
+              {/* ── Actions ── */}
               {!isReadOnly ? (
                 <SubmitButton onClick={handleSubmit} saving={saving} />
               ) : (
-                <div style={{ background: '#090909', border: '1px solid rgba(34,197,94,0.25)', borderRadius: 14, padding: '1.25rem', textAlign: 'center' }}>
-                  <p style={{ fontSize: '0.92rem', fontWeight: 700, color: 'rgba(74,222,128,0.9)' }}>
-                    ✅ This re-evaluation has been completed
+                <div style={{ background: '#090909', border: '1px solid rgba(34,197,94,0.25)', borderRadius: 14, padding: '1.4rem' }}>
+                  <p style={{ fontSize: '0.92rem', fontWeight: 700, color: 'rgba(74,222,128,0.9)', textAlign: 'center', marginBottom: reevaluation ? '1rem' : 0 }}>
+                    ✅ Re-evaluation completed
                   </p>
+
+                  {/* ✅ Show re-evaluation result stats */}
+                  {reevaluation && (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '0.6rem' }}>
+                      {[
+                        {
+                          label: 'New Score',
+                          val: `${reevaluation.newTotalMarksObtained}/${reevaluation.newTotalMarks}`,
+                          color: 'rgba(74,222,128,1)',
+                        },
+                        {
+                          label: 'Percentage',
+                          val: `${reevaluation.newPercentage.toFixed(1)}%`,
+                          color: 'rgba(147,197,253,1)',
+                        },
+                        {
+                          label: 'Difference',
+                          val: `${reevaluation.totalDifference > 0 ? '+' : ''}${reevaluation.totalDifference}`,
+                          color: reevaluation.totalDifference > 0
+                            ? 'rgba(74,222,128,1)'
+                            : reevaluation.totalDifference < 0
+                              ? 'rgba(252,165,165,1)'
+                              : 'rgba(255,255,255,0.4)',
+                        },
+                      ].map(s => (
+                        <div key={s.label} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 9, padding: '0.7rem 0.5rem', textAlign: 'center' }}>
+                          <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.28)', marginBottom: '0.3rem' }}>{s.label}</div>
+                          <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: '1.5rem', lineHeight: 1, color: s.color }}>{s.val}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Re-eval ID */}
+                  {grievance.reevaluationId && (
+                    <p style={{ fontSize: '0.65rem', fontFamily: 'monospace', color: 'rgba(74,222,128,0.25)', textAlign: 'center', marginTop: '0.85rem', wordBreak: 'break-all' }}>
+                      {grievance.reevaluationId}
+                    </p>
+                  )}
                 </div>
               )}
             </div>

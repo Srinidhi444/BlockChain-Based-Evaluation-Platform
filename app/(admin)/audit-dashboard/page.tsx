@@ -10,17 +10,12 @@ interface AuditLog {
   userName: string; userRole: string; department: string; submissionId?: string;
   questionNumber?: number; marksAwarded?: number; timeSpent?: number; markingPattern?: string;
 }
-interface TeacherBias {
-  teacherId: string; teacherName: string; biasScore: number; riskLevel: string;
-}
-interface BiasOverview {
-  totalGrievances: number; grievanceSuccessRate: string; teachersAtRisk: number; criticalCases: number;
-}
+
 interface Stats {
   totalLogs: number; eventTypeCounts: Record<string, number>;
 }
 
-const PAGE_LIMIT = 100; // fetch enough rows so filtering students still leaves a full page
+const PAGE_LIMIT = 100;
 
 /* ─── Cursor ─── */
 function DashCursor() {
@@ -54,17 +49,6 @@ function StatCard({ value, label, accent }: { value: React.ReactNode; label: str
   );
 }
 
-/* ─── Risk config ─── */
-function riskConfig(level: string) {
-  const m: Record<string, { color: string; bg: string; border: string }> = {
-    critical: { color: 'rgba(252,165,165,1)', bg: 'rgba(239,68,68,0.1)',  border: 'rgba(239,68,68,0.3)'  },
-    high:     { color: 'rgba(253,224,71,1)',  bg: 'rgba(251,191,36,0.1)', border: 'rgba(251,191,36,0.3)' },
-    medium:   { color: 'rgba(147,197,253,1)', bg: 'rgba(59,130,246,0.1)', border: 'rgba(59,130,246,0.3)' },
-    low:      { color: 'rgba(74,222,128,1)',  bg: 'rgba(34,197,94,0.1)',  border: 'rgba(34,197,94,0.3)'  },
-  };
-  return m[level] || m.low;
-}
-
 /* ─── Role badge config ─── */
 function roleConfig(role: string) {
   const m: Record<string, { color: string; bg: string; border: string }> = {
@@ -76,8 +60,8 @@ function roleConfig(role: string) {
 
 /* ─── Pattern badge config ─── */
 function patternConfig(p: string) {
-  if (p === 'strict')  return { color: 'rgba(252,165,165,1)', bg: 'rgba(239,68,68,0.1)',     border: 'rgba(239,68,68,0.25)'    };
-  if (p === 'lenient') return { color: 'rgba(74,222,128,1)',  bg: 'rgba(34,197,94,0.1)',     border: 'rgba(34,197,94,0.25)'    };
+  if (p === 'strict')  return { color: 'rgba(252,165,165,1)', bg: 'rgba(239,68,68,0.1)',      border: 'rgba(239,68,68,0.25)'   };
+  if (p === 'lenient') return { color: 'rgba(74,222,128,1)',  bg: 'rgba(34,197,94,0.1)',      border: 'rgba(34,197,94,0.25)'   };
   return                      { color: 'rgba(255,255,255,0.4)', bg: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.1)'  };
 }
 
@@ -112,7 +96,7 @@ function DarkSelect(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   );
 }
 
-/* ─── Tab button ─── */
+/* ─── Tab button (only logs now) ─── */
 function TabBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   const [h, setH] = useState(false);
   return (
@@ -137,14 +121,17 @@ function NavBack({ href, label }: { href: string; label: string }) {
 }
 
 /* ─── Export button ─── */
-function ExportButton({ onClick }: { onClick: () => void }) {
+function ExportButton({ onClick, exporting }: { onClick: () => void; exporting: boolean }) {
   const [h, setH] = useState(false);
   return (
-    <button onClick={onClick}
-      style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.42rem 0.9rem', borderRadius: 8, background: h ? 'rgba(255,255,255,0.09)' : 'rgba(255,255,255,0.05)', border: `1px solid ${h ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.12)'}`, fontSize: '0.8rem', fontWeight: 700, color: h ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.45)', cursor: 'none', fontFamily: 'inherit', transition: 'all 0.2s' }}
+    <button onClick={onClick} disabled={exporting}
+      style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.42rem 0.9rem', borderRadius: 8, background: h && !exporting ? 'rgba(255,255,255,0.09)' : 'rgba(255,255,255,0.05)', border: `1px solid ${h && !exporting ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.12)'}`, fontSize: '0.8rem', fontWeight: 700, color: exporting ? 'rgba(255,255,255,0.25)' : h ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.45)', cursor: exporting ? 'not-allowed' : 'none', fontFamily: 'inherit', transition: 'all 0.2s', opacity: exporting ? 0.5 : 1 }}
       onMouseEnter={() => setH(true)} onMouseLeave={() => setH(false)}>
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-      Export CSV
+      {exporting
+        ? <div style={{ width: 11, height: 11, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.15)', borderTop: '2px solid rgba(255,255,255,0.5)', animation: 'spin 0.7s linear infinite' }} />
+        : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+      }
+      {exporting ? 'Exporting…' : 'Export CSV'}
     </button>
   );
 }
@@ -164,39 +151,46 @@ const formatEvent = (t: string | undefined | null): string => {
 const teacherOnly = (logs: AuditLog[]): AuditLog[] =>
   logs.filter(l => l.userRole && l.userRole !== 'student');
 
-/* ─── Client-side pagination helper ─── */
+/* ─── Client-side pagination ─── */
 const ROWS_PER_PAGE = 15;
 function paginate<T>(arr: T[], page: number): T[] {
   return arr.slice((page - 1) * ROWS_PER_PAGE, page * ROWS_PER_PAGE);
+}
+
+/* ─── CSV builder (client-side, from allLogs) ─── */
+function buildCSV(logs: AuditLog[]): string {
+  const headers = ['Audit ID', 'Timestamp', 'Event Type', 'User ID', 'User Name', 'Role', 'Department', 'Submission ID', 'Question #', 'Marks Awarded', 'Time Spent (s)', 'Marking Pattern'];
+  const escape  = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const rows    = logs.map(l => [
+    l.auditId, l.timestamp, l.eventType, l.userId, l.userName,
+    l.userRole, l.department, l.submissionId ?? '', l.questionNumber ?? '',
+    l.marksAwarded ?? '', l.timeSpent ?? '', l.markingPattern ?? '',
+  ].map(escape).join(','));
+  return [headers.map(escape).join(','), ...rows].join('\n');
 }
 
 /* ══════════════════════════ MAIN PAGE ══════════════════════════ */
 export default function AuditDashboard() {
   const router = useRouter();
 
-  // allLogs = every teacher/admin log fetched so far (filtered, full set)
-  const [allLogs, setAllLogs]               = useState<AuditLog[]>([]);
-  const [hasMore, setHasMore]               = useState(true);   // whether API has more pages
-  const [apiFetchPage, setApiFetchPage]     = useState(1);      // which API page we last fetched
+  const [allLogs, setAllLogs]           = useState<AuditLog[]>([]);
+  const [hasMore, setHasMore]           = useState(true);
+  const [apiFetchPage, setApiFetchPage] = useState(1);
 
-  const [stats, setStats]                   = useState<Stats | null>(null);
-  const [biasOverview, setBiasOverview]     = useState<BiasOverview | null>(null);
-  const [highBiasTeachers, setHighBiasTeachers] = useState<TeacherBias[]>([]);
+  const [stats, setStats]               = useState<Stats | null>(null);
 
-  const [loading, setLoading]               = useState(true);
-  const [error, setError]                   = useState('');
+  const [loading, setLoading]           = useState(true);
+  const [exporting, setExporting]       = useState(false);
+  const [error, setError]               = useState('');
 
-  // Filters
-  const [eventType, setEventType]           = useState('');
-  const [department, setDepartment]         = useState('');
-  const [dateFrom, setDateFrom]             = useState('');
-  const [dateTo, setDateTo]                 = useState('');
+  const [eventType, setEventType]       = useState('');
+  const [department, setDepartment]     = useState('');
+  const [dateFrom, setDateFrom]         = useState('');
+  const [dateTo, setDateTo]             = useState('');
 
-  // UI page (client-side, operates on allLogs)
-  const [currentPage, setCurrentPage]       = useState(1);
-  const [activeTab, setActiveTab]           = useState<'logs' | 'bias' | 'grievances'>('logs');
+  const [currentPage, setCurrentPage]   = useState(1);
 
-  // Re-fetch from scratch whenever filters change
+  // Reset on filter change
   useEffect(() => {
     setAllLogs([]);
     setHasMore(true);
@@ -204,7 +198,7 @@ export default function AuditDashboard() {
     setCurrentPage(1);
   }, [eventType, department, dateFrom, dateTo]);
 
-  // Fetch whenever apiFetchPage changes (or filters reset it to 1)
+  // Fetch when API page changes
   useEffect(() => {
     fetchLogs(apiFetchPage);
   }, [apiFetchPage, eventType, department, dateFrom, dateTo]);
@@ -212,7 +206,6 @@ export default function AuditDashboard() {
   const fetchLogs = async (apiPage: number) => {
     try {
       setLoading(true); setError('');
-
       const params = new URLSearchParams({ page: apiPage.toString(), limit: PAGE_LIMIT.toString() });
       if (eventType)  params.append('eventType',  eventType);
       if (department) params.append('department', department);
@@ -228,73 +221,72 @@ export default function AuditDashboard() {
       const rawLogs: AuditLog[] = logsData.data.logs ?? [];
       const filtered = teacherOnly(rawLogs);
 
-      // Accumulate or replace based on whether this is first page
-      if (apiPage === 1) {
-        setAllLogs(filtered);
-      } else {
-        setAllLogs(prev => [...prev, ...filtered]);
-      }
+      if (apiPage === 1) { setAllLogs(filtered); }
+      else               { setAllLogs(prev => [...prev, ...filtered]); }
 
       setStats(logsData.data.stats);
-
-      // If API returned fewer rows than we asked for, no more pages exist
       setHasMore(rawLogs.length === PAGE_LIMIT);
-
-      // Fetch bias data only on first load
-      if (apiPage === 1) {
-        const biasParams = new URLSearchParams({ type: 'overview' });
-        if (dateFrom) biasParams.append('dateFrom', dateFrom);
-        if (dateTo)   biasParams.append('dateTo',   dateTo);
-        const biasRes = await fetch(`/api/admin/bias-report?${biasParams}`);
-        if (biasRes.ok) {
-          const biasData = await biasRes.json();
-          setBiasOverview(biasData.data.summary);
-          setHighBiasTeachers(biasData.data.highBiasTeachers.teachers ?? []);
-        }
-      }
     } catch (err: any) { setError(err.message || 'Failed to load dashboard data'); }
     finally { setLoading(false); }
   };
 
+  /* ─── Export: fetch ALL pages, build CSV client-side ─── */
   const handleExportCSV = async () => {
     try {
-      const res = await fetch('/api/admin/bias-report/export', {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reportType: 'overview', format: 'csv', dateFrom, dateTo }),
-      });
-      if (!res.ok) throw new Error('Export failed');
-      const blob = await res.blob();
-      const url  = window.URL.createObjectURL(blob);
+      setExporting(true);
+      let page = 1;
+      let allFetched: AuditLog[] = [];
+      let morePages = true;
+
+      while (morePages) {
+        const params = new URLSearchParams({ page: page.toString(), limit: PAGE_LIMIT.toString() });
+        if (eventType)  params.append('eventType',  eventType);
+        if (department) params.append('department', department);
+        if (dateFrom)   params.append('dateFrom',   dateFrom);
+        if (dateTo)     params.append('dateTo',     dateTo);
+
+        const res = await fetch(`/api/admin/audit-logs?${params}`);
+        if (!res.ok) throw new Error('Failed to fetch logs for export');
+
+        const data = await res.json();
+        const raw: AuditLog[] = data.data.logs ?? [];
+        allFetched = [...allFetched, ...teacherOnly(raw)];
+
+        morePages = raw.length === PAGE_LIMIT;
+        page++;
+      }
+
+      const csv  = buildCSV(allFetched);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url  = URL.createObjectURL(blob);
       const a    = document.createElement('a');
-      a.href = url; a.download = `audit_report_${Date.now()}.csv`;
-      document.body.appendChild(a); a.click();
-      window.URL.revokeObjectURL(url); document.body.removeChild(a);
-    } catch (err: any) { alert(`Export failed: ${err.message}`); }
+      a.href     = url;
+      a.download = `audit_logs_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err: any) {
+      alert(`Export failed: ${err.message}`);
+    } finally {
+      setExporting(false);
+    }
   };
 
-  // Derived values for pagination
+  // Pagination
   const visibleLogs  = paginate(allLogs, currentPage);
   const totalPages   = Math.max(1, Math.ceil(allLogs.length / ROWS_PER_PAGE));
-  // If we're on the last UI page AND the API has more, fetch the next API page
   const onLastUiPage = currentPage >= totalPages;
 
   const handleNextPage = () => {
     if (!onLastUiPage) {
-      // More rows already loaded — just advance UI page
       setCurrentPage(p => p + 1);
     } else if (hasMore && !loading) {
-      // Need to fetch next API page first, then advance UI
-      const nextApiPage = apiFetchPage + 1;
-      setApiFetchPage(nextApiPage);
-      // UI page will advance after new rows are appended
+      setApiFetchPage(apiFetchPage + 1);
       setCurrentPage(p => p + 1);
     }
   };
-
-  const handlePrevPage = () => {
-    setCurrentPage(p => Math.max(1, p - 1));
-  };
-
+  const handlePrevPage = () => setCurrentPage(p => Math.max(1, p - 1));
   const isNextDisabled = onLastUiPage && !hasMore;
   const isPrevDisabled = currentPage === 1;
 
@@ -335,6 +327,7 @@ export default function AuditDashboard() {
         .fade-up  { animation:fadeUp 0.45s ease both; }
         .fade-up2 { animation:fadeUp 0.45s ease both; animation-delay:0.07s; }
         .fade-up3 { animation:fadeUp 0.45s ease both; animation-delay:0.13s; }
+        .fade-up4 { animation:fadeUp 0.45s ease both; animation-delay:0.18s; }
 
         select option { background:#1a1a1a; color:#f0f0f0; }
         input[type='date']::-webkit-calendar-picker-indicator { filter:invert(0.6); cursor:none; }
@@ -363,40 +356,37 @@ export default function AuditDashboard() {
             EvalChain <span style={{ color: 'rgba(255,255,255,0.18)' }}>/</span>
             <span style={{ color: 'rgba(255,255,255,0.55)' }}>Audit & Bias</span>
           </div>
-          <ExportButton onClick={handleExportCSV} />
+          <ExportButton onClick={handleExportCSV} exporting={exporting} />
         </nav>
 
         <div style={{ maxWidth: 1280, margin: '0 auto', padding: '2.25rem 1.25rem 4rem' }}>
 
           {/* ── Heading ── */}
           <div className="fade-up" style={{ marginBottom: '2rem' }}>
-            <div style={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.3)', marginBottom: '0.55rem' }}>Admin Portal</div>
+            <div style={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.3)', marginBottom: '0.55rem' }}>
+              Admin Portal
+            </div>
             <h1 style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 'clamp(2.4rem,5vw,3.5rem)', lineHeight: 0.95, color: '#ffffff', letterSpacing: '0.01em' }}>
               AUDIT &amp;<br/>
               <span style={{ WebkitTextStroke: '0.5px rgba(255,255,255,0.9)', color: 'transparent' }}>BIAS DETECTION</span>
             </h1>
           </div>
 
-          {/* ── Stat cards ── */}
-          {biasOverview && (
+          {/* ── Simple stats (from stats) ── */}
+          {stats && (
             <div className="fade-up2" style={{ display: 'flex', gap: '0.85rem', marginBottom: '1.25rem', flexWrap: 'wrap' as const }}>
-              <StatCard value={biasOverview.totalGrievances}            label="Total Grievances"  accent="rgba(147,197,253,1)" />
-              <StatCard value={`${biasOverview.grievanceSuccessRate}%`} label="Success Rate"      accent="rgba(74,222,128,1)"  />
-              <StatCard value={biasOverview.teachersAtRisk}             label="Teachers at Risk"  accent="rgba(253,224,71,1)"  />
-              <StatCard value={biasOverview.criticalCases}              label="Critical Cases"    accent="rgba(252,165,165,1)" />
+              <StatCard value={stats.totalLogs} label="Total Logs" accent="rgba(147,197,253,1)" />
             </div>
           )}
 
-          {/* ── Tabs + Filters ── */}
+          {/* ── Tabs + Filters (only logs tab now) ── */}
           <div className="fade-up3" style={{ background: '#090909', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '1.25rem 1.4rem', marginBottom: '1rem' }}>
             <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '1.25rem', borderBottom: '1px solid rgba(255,255,255,0.07)', paddingBottom: '1rem' }}>
-              <TabBtn active={activeTab === 'logs'}       onClick={() => setActiveTab('logs')}>       📋 Audit Logs</TabBtn>
-              <TabBtn active={activeTab === 'bias'}       onClick={() => setActiveTab('bias')}>       ⚠️ Bias Detection</TabBtn>
-              <TabBtn active={activeTab === 'grievances'} onClick={() => setActiveTab('grievances')}> 📊 Grievance Analytics</TabBtn>
+              <TabBtn active={true} onClick={() => { /* only logs */ }}>📋 Audit Logs</TabBtn>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '0.85rem' }}>
               <div><FLabel>Event Type</FLabel>
-                <DarkSelect value={eventType} onChange={e => { setEventType(e.target.value); }}>
+                <DarkSelect value={eventType} onChange={e => setEventType(e.target.value)}>
                   <option value="">All Events</option>
                   <option value="evaluation_started">Evaluation Started</option>
                   <option value="question_marked">Question Marked</option>
@@ -417,197 +407,114 @@ export default function AuditDashboard() {
             </div>
           </div>
 
-          {/* ── TAB: Audit Logs ── */}
-          {activeTab === 'logs' && (
-            <div style={{ background: '#090909', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '1.4rem' }}>
+          {/* ── Audit Logs ── */}
+          <div className="fade-up4" style={{ background: '#090909', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '1.4rem' }}>
 
-              {/* Header */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                  <div style={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.35)' }}>
-                    Teacher &amp; Admin Logs
-                  </div>
-                  <div style={{ padding: '0.18rem 0.6rem', borderRadius: 100, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', fontFamily: "'Bebas Neue',sans-serif", fontSize: '1rem', color: 'rgba(255,255,255,0.5)', lineHeight: 1 }}>
-                    {allLogs.length}{hasMore ? '+' : ''}
-                  </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                <div style={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.35)' }}>
+                  Teacher &amp; Admin Logs
                 </div>
-                {loading && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <div style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.07)', borderTop: '2px solid rgba(255,255,255,0.4)', animation: 'spin 0.7s linear infinite' }} />
-                    <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.3)' }}>Loading…</span>
-                  </div>
-                )}
+                <div style={{ padding: '0.18rem 0.6rem', borderRadius: 100, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', fontFamily: "'Bebas Neue',sans-serif", fontSize: '1rem', color: 'rgba(255,255,255,0.5)', lineHeight: 1 }}>
+                  {allLogs.length}{hasMore ? '+' : ''}
+                </div>
               </div>
-
-              {error && (
-                <div style={{ marginBottom: '1rem', padding: '0.8rem 1rem', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 9, display: 'flex', gap: '0.5rem' }}>
-                  <span>⚠️</span>
-                  <p style={{ fontSize: '0.83rem', fontWeight: 600, color: 'rgba(252,165,165,0.95)' }}>{error}</p>
+              {loading && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <div style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.07)', borderTop: '2px solid rgba(255,255,255,0.4)', animation: 'spin 0.7s linear infinite' }} />
+                  <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.3)' }}>Loading…</span>
                 </div>
               )}
+            </div>
 
-              {/* Table */}
-              <div className="a-scroll" style={{ overflowX: 'auto' }}>
-                <table className="audit-table">
-                  <thead>
-                    <tr>{['Timestamp', 'Event', 'User', 'Role', 'Department', 'Details'].map(h => <th key={h}>{h}</th>)}</tr>
-                  </thead>
-                  <tbody>
-                    {visibleLogs.length === 0 ? (
-                      <tr>
-                        <td colSpan={6} style={{ textAlign: 'center', padding: '3rem', color: 'rgba(255,255,255,0.3)', fontSize: '0.85rem' }}>
-                          No teacher logs found
+            {error && (
+              <div style={{ marginBottom: '1rem', padding: '0.8rem 1rem', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 9, display: 'flex', gap: '0.5rem' }}>
+                <span>⚠️</span>
+                <p style={{ fontSize: '0.83rem', fontWeight: 600, color: 'rgba(252,165,165,0.95)' }}>{error}</p>
+              </div>
+            )}
+
+            <div className="a-scroll" style={{ overflowX: 'auto' }}>
+              <table className="audit-table">
+                <thead>
+                  <tr>{['Timestamp', 'Event', 'User', 'Role', 'Department', 'Details'].map(h => <th key={h}>{h}</th>)}</tr>
+                </thead>
+                <tbody>
+                  {visibleLogs.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} style={{ textAlign: 'center', padding: '3rem', color: 'rgba(255,255,255,0.3)', fontSize: '0.85rem' }}>
+                        No teacher logs found
+                      </td>
+                    </tr>
+                  ) : visibleLogs.map(log => {
+                    const rc = roleConfig(log.userRole);
+                    return (
+                      <tr key={log.auditId}>
+                        <td style={{ whiteSpace: 'nowrap', fontSize: '0.75rem', fontFamily: 'monospace', color: 'rgba(255,255,255,0.38)' }}>
+                          {new Date(log.timestamp).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        </td>
+                        <td>
+                          <span style={{ padding: '0.2rem 0.6rem', borderRadius: 100, background: 'rgba(147,197,253,0.1)', border: '1px solid rgba(147,197,253,0.22)', fontSize: '0.62rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase' as const, color: 'rgba(147,197,253,0.85)', whiteSpace: 'nowrap' as const }}>
+                            {formatEvent(log.eventType)}
+                          </span>
+                        </td>
+                        <td style={{ fontWeight: 700, color: 'rgba(255,255,255,0.75)' }}>{log.userName || '—'}</td>
+                        <td><Pill label={log.userRole || '—'} color={rc.color} bg={rc.bg} border={rc.border} /></td>
+                        <td style={{ color: 'rgba(255,255,255,0.5)' }}>{log.department || '—'}</td>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' as const }}>
+                            {log.questionNumber   && <span style={{ fontSize: '0.73rem', fontWeight: 600, color: 'rgba(255,255,255,0.45)' }}>Q{log.questionNumber}</span>}
+                            {log.marksAwarded !== undefined && <span style={{ fontSize: '0.73rem', fontWeight: 600, color: 'rgba(255,255,255,0.45)' }}>{log.marksAwarded} pts</span>}
+                            {log.timeSpent        && <span style={{ fontSize: '0.73rem', fontWeight: 600, color: 'rgba(255,255,255,0.35)' }}>{log.timeSpent}s</span>}
+                            {log.markingPattern   && (() => { const pc = patternConfig(log.markingPattern!); return <Pill label={log.markingPattern!} color={pc.color} bg={pc.bg} border={pc.border} />; })()}
+                          </div>
                         </td>
                       </tr>
-                    ) : visibleLogs.map(log => {
-                      const rc = roleConfig(log.userRole);
-                      return (
-                        <tr key={log.auditId}>
-                          <td style={{ whiteSpace: 'nowrap', fontSize: '0.75rem', fontFamily: 'monospace', color: 'rgba(255,255,255,0.38)' }}>
-                            {new Date(log.timestamp).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                          </td>
-                          <td>
-                            <span style={{ padding: '0.2rem 0.6rem', borderRadius: 100, background: 'rgba(147,197,253,0.1)', border: '1px solid rgba(147,197,253,0.22)', fontSize: '0.62rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase' as const, color: 'rgba(147,197,253,0.85)', whiteSpace: 'nowrap' as const }}>
-                              {formatEvent(log.eventType)}
-                            </span>
-                          </td>
-                          <td style={{ fontWeight: 700, color: 'rgba(255,255,255,0.75)' }}>{log.userName || '—'}</td>
-                          <td><Pill label={log.userRole || '—'} color={rc.color} bg={rc.bg} border={rc.border} /></td>
-                          <td style={{ color: 'rgba(255,255,255,0.5)' }}>{log.department || '—'}</td>
-                          <td>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' as const }}>
-                              {log.questionNumber   && <span style={{ fontSize: '0.73rem', fontWeight: 600, color: 'rgba(255,255,255,0.45)' }}>Q{log.questionNumber}</span>}
-                              {log.marksAwarded !== undefined && <span style={{ fontSize: '0.73rem', fontWeight: 600, color: 'rgba(255,255,255,0.45)' }}>{log.marksAwarded} pts</span>}
-                              {log.timeSpent        && <span style={{ fontSize: '0.73rem', fontWeight: 600, color: 'rgba(255,255,255,0.35)' }}>{log.timeSpent}s</span>}
-                              {log.markingPattern   && (() => { const pc = patternConfig(log.markingPattern!); return <Pill label={log.markingPattern!} color={pc.color} bg={pc.bg} border={pc.border} />; })()}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* ── Pagination ── */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.07)' }}>
-                <PaginationBtn dir="prev" disabled={isPrevDisabled} onClick={handlePrevPage} />
-
-                {/* Page info */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'rgba(255,255,255,0.35)' }}>
-                    Page {currentPage} of {totalPages}{hasMore ? '+' : ''}
-                  </span>
-                  {/* Page number pills */}
-                  <div style={{ display: 'flex', gap: '0.3rem' }}>
-                    {Array.from({ length: totalPages }, (_, i) => i + 1)
-                      .filter(p => Math.abs(p - currentPage) <= 2)
-                      .map(p => (
-                        <button key={p} onClick={() => setCurrentPage(p)}
-                          style={{ width: 28, height: 28, borderRadius: 7, fontFamily: 'inherit', fontSize: '0.75rem', fontWeight: 700, cursor: 'none', border: p === currentPage ? '1px solid rgba(255,255,255,0.3)' : '1px solid rgba(255,255,255,0.08)', background: p === currentPage ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.03)', color: p === currentPage ? '#fff' : 'rgba(255,255,255,0.4)', transition: 'all 0.15s' }}>
-                          {p}
-                        </button>
-                      ))
-                    }
-                  </div>
-                </div>
-
-                <PaginationBtn
-                  dir="next"
-                  disabled={isNextDisabled}
-                  loading={loading && onLastUiPage}
-                  onClick={handleNextPage}
-                />
-              </div>
-
-              {/* Event summary */}
-              {stats && Object.keys(stats.eventTypeCounts).length > 0 && (
-                <div style={{ marginTop: '1rem', padding: '1rem 1.1rem', background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10 }}>
-                  <div style={{ fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.3)', marginBottom: '0.75rem' }}>Event Type Summary</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap' as const, gap: '0.55rem' }}>
-                    {Object.entries(stats.eventTypeCounts)
-                      .filter(([type]) => !!type)
-                      .map(([type, count]) => (
-                        <div key={type} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.25rem 0.7rem', borderRadius: 100, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                          <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'rgba(255,255,255,0.45)' }}>{formatEvent(type)}</span>
-                          <span style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: '1rem', color: 'rgba(255,255,255,0.7)', lineHeight: 1 }}>{count}</span>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ── TAB: Bias Detection ── */}
-          {activeTab === 'bias' && (
-            <div style={{ background: '#090909', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '1.4rem' }}>
-              <div style={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.35)', marginBottom: '1.1rem' }}>
-                High Bias Risk Teachers
-              </div>
-              {highBiasTeachers.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '4rem 2rem' }}>
-                  <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>✅</div>
-                  <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'rgba(74,222,128,0.8)' }}>No high-risk teachers detected</div>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  {highBiasTeachers.map(t => {
-                    const rc = riskConfig(t.riskLevel);
-                    return (
-                      <div key={t.teacherId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem 1.2rem', background: 'rgba(255,255,255,0.025)', border: `1px solid ${rc.border}`, borderRadius: 11, position: 'relative', overflow: 'hidden' }}>
-                        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: rc.color, opacity: 0.7 }} />
-                        <div>
-                          <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'rgba(255,255,255,0.82)', marginBottom: '0.2rem' }}>{t.teacherName}</div>
-                          <div style={{ fontSize: '0.72rem', fontFamily: 'monospace', color: 'rgba(255,255,255,0.3)' }}>{t.teacherId}</div>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
-                          <div style={{ textAlign: 'right' }}>
-                            <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: '2rem', lineHeight: 1, color: rc.color }}>{t.biasScore.toFixed(1)}</div>
-                            <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.3)' }}>Bias Score</div>
-                          </div>
-                          <Pill label={t.riskLevel.toUpperCase()} color={rc.color} bg={rc.bg} border={rc.border} />
-                        </div>
-                      </div>
                     );
                   })}
-                </div>
-              )}
+                </tbody>
+              </table>
             </div>
-          )}
 
-          {/* ── TAB: Grievance Analytics ── */}
-          {activeTab === 'grievances' && biasOverview && (
-            <div style={{ background: '#090909', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '1.4rem' }}>
-              <div style={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.35)', marginBottom: '1.25rem' }}>
-                Grievance Analytics
+            {/* ── Pagination ── */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+              <PaginationBtn dir="prev" disabled={isPrevDisabled} onClick={handlePrevPage} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'rgba(255,255,255,0.35)' }}>
+                  Page {currentPage} of {totalPages}{hasMore ? '+' : ''}
+                </span>
+                <div style={{ display: 'flex', gap: '0.3rem' }}>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(p => Math.abs(p - currentPage) <= 2)
+                    .map(p => (
+                      <button key={p} onClick={() => setCurrentPage(p)}
+                        style={{ width: 28, height: 28, borderRadius: 7, fontFamily: 'inherit', fontSize: '0.75rem', fontWeight: 700, cursor: 'none', border: p === currentPage ? '1px solid rgba(255,255,255,0.3)' : '1px solid rgba(255,255,255,0.08)', background: p === currentPage ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.03)', color: p === currentPage ? '#fff' : 'rgba(255,255,255,0.4)', transition: 'all 0.15s' }}>
+                        {p}
+                      </button>
+                    ))
+                  }
+                </div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 11, padding: '1.1rem 1.2rem' }}>
-                  <div style={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.3)', marginBottom: '0.9rem' }}>Overall Statistics</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-                    {[
-                      { k: 'Total Grievances', v: biasOverview.totalGrievances,            color: 'rgba(147,197,253,1)' },
-                      { k: 'Success Rate',     v: `${biasOverview.grievanceSuccessRate}%`, color: 'rgba(74,222,128,1)'  },
-                      { k: 'Teachers at Risk', v: biasOverview.teachersAtRisk,             color: 'rgba(253,224,71,1)'  },
-                    ].map(row => (
-                      <div key={row.k} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'rgba(255,255,255,0.45)' }}>{row.k}</span>
-                        <span style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: '1.5rem', lineHeight: 1, color: row.color }}>{row.v}</span>
+              <PaginationBtn dir="next" disabled={isNextDisabled} loading={loading && onLastUiPage} onClick={handleNextPage} />
+            </div>
+
+            {/* Event summary */}
+            {stats && Object.keys(stats.eventTypeCounts).length > 0 && (
+              <div style={{ marginTop: '1rem', padding: '1rem 1.1rem', background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10 }}>
+                <div style={{ fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.3)', marginBottom: '0.75rem' }}>Event Type Summary</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap' as const, gap: '0.55rem' }}>
+                  {Object.entries(stats.eventTypeCounts)
+                    .filter(([type]) => !!type)
+                    .map(([type, count]) => (
+                      <div key={type} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.25rem 0.7rem', borderRadius: 100, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                        <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'rgba(255,255,255,0.45)' }}>{formatEvent(type)}</span>
+                        <span style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: '1rem', color: 'rgba(255,255,255,0.7)', lineHeight: 1 }}>{count}</span>
                       </div>
                     ))}
-                  </div>
-                </div>
-                <div style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 11, padding: '1.1rem 1.2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', position: 'relative', overflow: 'hidden' }}>
-                  <div style={{ position: 'absolute', top: -20, right: -20, width: 80, height: 80, borderRadius: '50%', background: 'rgba(239,68,68,0.15)', filter: 'blur(25px)', pointerEvents: 'none' }} />
-                  <div style={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: 'rgba(252,165,165,0.6)' }}>Critical Cases</div>
-                  <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: '5rem', lineHeight: 0.9, color: 'rgba(252,165,165,1)' }}>{biasOverview.criticalCases}</div>
-                  <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'rgba(252,165,165,0.6)' }}>Require immediate review</div>
                 </div>
               </div>
-            </div>
-          )}
-
+            )}
+          </div>
         </div>
       </div>
 

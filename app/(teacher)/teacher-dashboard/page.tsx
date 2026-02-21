@@ -242,7 +242,6 @@ export default function TeacherDashboard() {
             {[
               { href: '/create-test', label: 'Create Test',   accent: 'rgba(147,197,253,1)' },
               { href: '/evaluate',    label: 'Evaluate',      accent: 'rgba(74,222,128,1)'  },
-              { href: '/add-students', label: 'Add Students', accent: 'rgba(253,224,71,1)'  },
             ].map(item => (
               <NavLink key={item.href} href={item.href} label={item.label} accent={item.accent} />
             ))}
@@ -322,7 +321,6 @@ export default function TeacherDashboard() {
             <ActionCard href="/create-test"  icon="📝" title="Create Test"    desc="Upload question paper and marking scheme"  accent="rgba(147,197,253,1)" />
             <ActionCard href="/evaluate"     icon="✅" title="Evaluate"       desc="Review and mark student submissions"       accent="rgba(74,222,128,1)"  />
             <ActionCard href="/grievances"   icon="📋" title="Grievances"     desc="Review and re-evaluate submissions"        accent="rgba(216,180,254,1)" badge={stats?.pendingGrievances} />
-            <ActionCard href="/add-students" icon="👥" title="Add Students"   desc="Register new students to the platform"    accent="rgba(253,224,71,1)"  />
           </div>
 
           {/* ── Quick links ── */}

@@ -109,8 +109,7 @@ export default function StudentDashboard() {
     { id: 'dashboard', icon: '⊞', label: 'Dashboard' },
     { id: 'upload',    icon: '↑',  label: 'Upload',      href: '/upload' },
     { id: 'results',   icon: '◈',  label: 'Results',     href: '/results' },
-    { id: 'grievances',icon: '⚑',  label: 'Grievances',  href: '/grievances' },
-    { id: 'profile',   icon: '◉',  label: 'Profile',     href: '/profile' },
+  
   ];
 
   if (loading) return (

@@ -379,6 +379,31 @@ export default function AuditDashboard() {
             </div>
           )}
 
+          {/* ── Import Students card ── */}
+          <div className="fade-up2" style={{ marginBottom: '1.5rem' }}>
+            <Link href="/import-students" style={{ textDecoration: 'none' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#090909', border: '1px solid rgba(139,92,246,0.3)', borderRadius: 14, padding: '1.1rem 1.4rem', cursor: 'none', transition: 'border-color 0.2s, background 0.2s' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(139,92,246,0.6)'; (e.currentTarget as HTMLDivElement).style.background = '#0d0d0d'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(139,92,246,0.3)'; (e.currentTarget as HTMLDivElement).style.background = '#090909'; }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(216,180,254,0.9)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'rgba(255,255,255,0.85)', marginBottom: '0.2rem' }}>Import Students via CSV</div>
+                    <div style={{ fontSize: '0.73rem', color: 'rgba(255,255,255,0.35)', fontWeight: 500 }}>Bulk upload student accounts — credentials auto-generated &amp; emailed</div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.42rem 1rem', borderRadius: 8, background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.3)', fontSize: '0.8rem', fontWeight: 700, color: 'rgba(216,180,254,0.9)', whiteSpace: 'nowrap' as const }}>
+                  Upload CSV
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+                </div>
+              </div>
+            </Link>
+          </div>
+
           {/* ── Tabs + Filters (only logs tab now) ── */}
           <div className="fade-up3" style={{ background: '#090909', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '1.25rem 1.4rem', marginBottom: '1rem' }}>
             <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '1.25rem', borderBottom: '1px solid rgba(255,255,255,0.07)', paddingBottom: '1rem' }}>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import FloatingChat from "@/components/FloatingChat";
 import Link from 'next/link';
 
 interface AuditLog {
@@ -489,6 +490,7 @@ export default function AuditDashboard() {
           </div>
         )}
       </div>
+      <FloatingChat />
     </div>
   );
 }

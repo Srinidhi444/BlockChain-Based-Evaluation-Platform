@@ -1,496 +1,634 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import FloatingChat from "@/components/FloatingChat";
 import Link from 'next/link';
 
 interface AuditLog {
-  auditId: string;
-  eventType: string;
-  timestamp: string;
-  userId: string;
-  userName: string;
-  userRole: string;
-  department: string;
-  submissionId?: string;
-  questionNumber?: number;
-  marksAwarded?: number;
-  timeSpent?: number;
-  markingPattern?: string;
+  auditId: string; eventType: string; timestamp: string; userId: string;
+  userName: string; userRole: string; department: string; submissionId?: string;
+  questionNumber?: number; marksAwarded?: number; timeSpent?: number; markingPattern?: string;
 }
-
 interface TeacherBias {
-  teacherId: string;
-  teacherName: string;
-  biasScore: number;
-  riskLevel: string;
+  teacherId: string; teacherName: string; biasScore: number; riskLevel: string;
 }
-
 interface BiasOverview {
-  totalGrievances: number;
-  grievanceSuccessRate: string;
-  teachersAtRisk: number;
-  criticalCases: number;
+  totalGrievances: number; grievanceSuccessRate: string; teachersAtRisk: number; criticalCases: number;
 }
-
 interface Stats {
-  totalLogs: number;
-  eventTypeCounts: Record<string, number>;
+  totalLogs: number; eventTypeCounts: Record<string, number>;
 }
 
+const PAGE_LIMIT = 100; // fetch enough rows so filtering students still leaves a full page
+
+/* ─── Cursor ─── */
+function DashCursor() {
+  const dotRef  = useRef<HTMLDivElement>(null);
+  const ringRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    let dx = window.innerWidth / 2, dy = window.innerHeight / 2, rx = dx, ry = dy;
+    let raf: number;
+    const onMove = (e: MouseEvent) => { dx = e.clientX; dy = e.clientY; };
+    window.addEventListener('mousemove', onMove);
+    const loop = () => {
+      if (dotRef.current)  { dotRef.current.style.left = dx + 'px'; dotRef.current.style.top  = dy + 'px'; }
+      rx += (dx - rx) * 0.11; ry += (dy - ry) * 0.11;
+      if (ringRef.current) { ringRef.current.style.left = rx + 'px'; ringRef.current.style.top = ry + 'px'; }
+      raf = requestAnimationFrame(loop);
+    };
+    loop();
+    return () => { window.removeEventListener('mousemove', onMove); cancelAnimationFrame(raf); };
+  }, []);
+  return (<><div ref={dotRef} className="c-dot" /><div ref={ringRef} className="c-ring" /></>);
+}
+
+/* ─── Stat card ─── */
+function StatCard({ value, label, accent }: { value: React.ReactNode; label: string; accent: string }) {
+  return (
+    <div style={{ background: '#090909', border: `1px solid ${accent}33`, borderRadius: 14, padding: '1.1rem 1.3rem', position: 'relative', overflow: 'hidden', flex: 1, minWidth: 0 }}>
+      <div style={{ position: 'absolute', top: -18, right: -18, width: 60, height: 60, borderRadius: '50%', background: `${accent}18`, filter: 'blur(18px)', pointerEvents: 'none' }} />
+      <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: '2.4rem', lineHeight: 1, color: accent, marginBottom: '0.25rem' }}>{value}</div>
+      <div style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.35)' }}>{label}</div>
+    </div>
+  );
+}
+
+/* ─── Risk config ─── */
+function riskConfig(level: string) {
+  const m: Record<string, { color: string; bg: string; border: string }> = {
+    critical: { color: 'rgba(252,165,165,1)', bg: 'rgba(239,68,68,0.1)',  border: 'rgba(239,68,68,0.3)'  },
+    high:     { color: 'rgba(253,224,71,1)',  bg: 'rgba(251,191,36,0.1)', border: 'rgba(251,191,36,0.3)' },
+    medium:   { color: 'rgba(147,197,253,1)', bg: 'rgba(59,130,246,0.1)', border: 'rgba(59,130,246,0.3)' },
+    low:      { color: 'rgba(74,222,128,1)',  bg: 'rgba(34,197,94,0.1)',  border: 'rgba(34,197,94,0.3)'  },
+  };
+  return m[level] || m.low;
+}
+
+/* ─── Role badge config ─── */
+function roleConfig(role: string) {
+  const m: Record<string, { color: string; bg: string; border: string }> = {
+    teacher: { color: 'rgba(74,222,128,1)',  bg: 'rgba(34,197,94,0.1)',  border: 'rgba(34,197,94,0.25)'  },
+    admin:   { color: 'rgba(216,180,254,1)', bg: 'rgba(139,92,246,0.1)', border: 'rgba(139,92,246,0.25)' },
+  };
+  return m[role] || { color: 'rgba(255,255,255,0.5)', bg: 'rgba(255,255,255,0.06)', border: 'rgba(255,255,255,0.12)' };
+}
+
+/* ─── Pattern badge config ─── */
+function patternConfig(p: string) {
+  if (p === 'strict')  return { color: 'rgba(252,165,165,1)', bg: 'rgba(239,68,68,0.1)',     border: 'rgba(239,68,68,0.25)'    };
+  if (p === 'lenient') return { color: 'rgba(74,222,128,1)',  bg: 'rgba(34,197,94,0.1)',     border: 'rgba(34,197,94,0.25)'    };
+  return                      { color: 'rgba(255,255,255,0.4)', bg: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.1)'  };
+}
+
+/* ─── Pill badge ─── */
+function Pill({ label, color, bg, border }: { label: string; color: string; bg: string; border: string }) {
+  return (
+    <span style={{ padding: '0.2rem 0.65rem', borderRadius: 100, background: bg, border: `1px solid ${border}`, fontSize: '0.62rem', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color, whiteSpace: 'nowrap' as const }}>
+      {label}
+    </span>
+  );
+}
+
+/* ─── Dark input / select ─── */
+const baseField: React.CSSProperties = {
+  width: '100%', background: 'rgba(255,255,255,0.04)',
+  border: '1px solid rgba(255,255,255,0.1)', borderRadius: 9,
+  padding: '0.62rem 0.9rem', color: '#f0f0f0',
+  fontFamily: "'Inter',sans-serif", fontSize: '0.83rem', fontWeight: 500,
+  outline: 'none', transition: 'border-color 0.2s, background 0.2s',
+};
+function DarkInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
+  const [f, setF] = useState(false);
+  return <input {...props} style={{ ...baseField, borderColor: f ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.1)', background: f ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.04)' }} onFocus={() => setF(true)} onBlur={() => setF(false)} />;
+}
+function DarkSelect(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
+  const [f, setF] = useState(false);
+  return (
+    <div style={{ position: 'relative' }}>
+      <select {...props} style={{ ...baseField, appearance: 'none', WebkitAppearance: 'none', cursor: 'none', paddingRight: '2.2rem', borderColor: f ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.1)', background: f ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.04)' }} onFocus={() => setF(true)} onBlur={() => setF(false)} />
+      <div style={{ position: 'absolute', right: '0.8rem', top: '50%', transform: 'translateY(-50%)', width: 0, height: 0, borderLeft: '4px solid transparent', borderRight: '4px solid transparent', borderTop: '5px solid rgba(255,255,255,0.35)', pointerEvents: 'none' }} />
+    </div>
+  );
+}
+
+/* ─── Tab button ─── */
+function TabBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  const [h, setH] = useState(false);
+  return (
+    <button onClick={onClick}
+      style={{ padding: '0.5rem 1.1rem', borderRadius: 9, fontFamily: 'inherit', fontSize: '0.82rem', fontWeight: 700, cursor: 'none', border: active ? '1px solid rgba(255,255,255,0.18)' : '1px solid transparent', background: active ? 'rgba(255,255,255,0.08)' : h ? 'rgba(255,255,255,0.04)' : 'transparent', color: active ? '#ffffff' : h ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.38)', transition: 'all 0.18s' }}
+      onMouseEnter={() => setH(true)} onMouseLeave={() => setH(false)}>
+      {children}
+    </button>
+  );
+}
+
+/* ─── Nav back ─── */
+function NavBack({ href, label }: { href: string; label: string }) {
+  const [h, setH] = useState(false);
+  return (
+    <Link href={href} style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.85rem', fontWeight: 600, color: h ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.45)', textDecoration: 'none', transition: 'color 0.2s' }}
+      onMouseEnter={() => setH(true)} onMouseLeave={() => setH(false)}>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      {label}
+    </Link>
+  );
+}
+
+/* ─── Export button ─── */
+function ExportButton({ onClick }: { onClick: () => void }) {
+  const [h, setH] = useState(false);
+  return (
+    <button onClick={onClick}
+      style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.42rem 0.9rem', borderRadius: 8, background: h ? 'rgba(255,255,255,0.09)' : 'rgba(255,255,255,0.05)', border: `1px solid ${h ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.12)'}`, fontSize: '0.8rem', fontWeight: 700, color: h ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.45)', cursor: 'none', fontFamily: 'inherit', transition: 'all 0.2s' }}
+      onMouseEnter={() => setH(true)} onMouseLeave={() => setH(false)}>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+      Export CSV
+    </button>
+  );
+}
+
+/* ─── Filter label ─── */
+function FLabel({ children }: { children: React.ReactNode }) {
+  return <div style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.38)', marginBottom: '0.4rem' }}>{children}</div>;
+}
+
+/* ─── Format event type ─── */
+const formatEvent = (t: string | undefined | null): string => {
+  if (!t || typeof t !== 'string') return '—';
+  return t.split('_').filter(Boolean).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+};
+
+/* ─── Filter: teacher/admin only ─── */
+const teacherOnly = (logs: AuditLog[]): AuditLog[] =>
+  logs.filter(l => l.userRole && l.userRole !== 'student');
+
+/* ─── Client-side pagination helper ─── */
+const ROWS_PER_PAGE = 15;
+function paginate<T>(arr: T[], page: number): T[] {
+  return arr.slice((page - 1) * ROWS_PER_PAGE, page * ROWS_PER_PAGE);
+}
+
+/* ══════════════════════════ MAIN PAGE ══════════════════════════ */
 export default function AuditDashboard() {
   const router = useRouter();
-  
-  const [logs, setLogs] = useState<AuditLog[]>([]);
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [biasOverview, setBiasOverview] = useState<BiasOverview | null>(null);
+
+  // allLogs = every teacher/admin log fetched so far (filtered, full set)
+  const [allLogs, setAllLogs]               = useState<AuditLog[]>([]);
+  const [hasMore, setHasMore]               = useState(true);   // whether API has more pages
+  const [apiFetchPage, setApiFetchPage]     = useState(1);      // which API page we last fetched
+
+  const [stats, setStats]                   = useState<Stats | null>(null);
+  const [biasOverview, setBiasOverview]     = useState<BiasOverview | null>(null);
   const [highBiasTeachers, setHighBiasTeachers] = useState<TeacherBias[]>([]);
-  
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  
+
+  const [loading, setLoading]               = useState(true);
+  const [error, setError]                   = useState('');
+
   // Filters
-  const [eventType, setEventType] = useState('');
-  const [department, setDepartment] = useState('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  
-  const [activeTab, setActiveTab] = useState<'logs' | 'bias' | 'grievances'>('logs');
+  const [eventType, setEventType]           = useState('');
+  const [department, setDepartment]         = useState('');
+  const [dateFrom, setDateFrom]             = useState('');
+  const [dateTo, setDateTo]                 = useState('');
 
+  // UI page (client-side, operates on allLogs)
+  const [currentPage, setCurrentPage]       = useState(1);
+  const [activeTab, setActiveTab]           = useState<'logs' | 'bias' | 'grievances'>('logs');
+
+  // Re-fetch from scratch whenever filters change
   useEffect(() => {
-    fetchDashboardData();
-  }, [currentPage, eventType, department, dateFrom, dateTo]);
+    setAllLogs([]);
+    setHasMore(true);
+    setApiFetchPage(1);
+    setCurrentPage(1);
+  }, [eventType, department, dateFrom, dateTo]);
 
-  const fetchDashboardData = async () => {
+  // Fetch whenever apiFetchPage changes (or filters reset it to 1)
+  useEffect(() => {
+    fetchLogs(apiFetchPage);
+  }, [apiFetchPage, eventType, department, dateFrom, dateTo]);
+
+  const fetchLogs = async (apiPage: number) => {
     try {
-      setLoading(true);
-      setError('');
-      
-      // Build query params
-      const params = new URLSearchParams({
-        page: currentPage.toString(),
-        limit: '20',
-      });
-      
-      if (eventType) params.append('eventType', eventType);
+      setLoading(true); setError('');
+
+      const params = new URLSearchParams({ page: apiPage.toString(), limit: PAGE_LIMIT.toString() });
+      if (eventType)  params.append('eventType',  eventType);
       if (department) params.append('department', department);
-      if (dateFrom) params.append('dateFrom', dateFrom);
-      if (dateTo) params.append('dateTo', dateTo);
-      
-      // Fetch audit logs
-      const logsResponse = await fetch(`/api/admin/audit-logs?${params}`);
-      
-      if (!logsResponse.ok) {
-        if (logsResponse.status === 401) {
-          router.push('/login');
-          return;
-        }
+      if (dateFrom)   params.append('dateFrom',   dateFrom);
+      if (dateTo)     params.append('dateTo',     dateTo);
+
+      const logsRes = await fetch(`/api/admin/audit-logs?${params}`);
+      if (!logsRes.ok) {
+        if (logsRes.status === 401) { router.push('/login'); return; }
         throw new Error('Failed to fetch audit logs');
       }
-      
-      const logsData = await logsResponse.json();
-      setLogs(logsData.data.logs);
-      setStats(logsData.data.stats);
-      
-      // Fetch bias overview
-      const biasParams = new URLSearchParams({ type: 'overview' });
-      if (dateFrom) biasParams.append('dateFrom', dateFrom);
-      if (dateTo) biasParams.append('dateTo', dateTo);
-      
-      const biasResponse = await fetch(`/api/admin/bias-report?${biasParams}`);
-      
-      if (biasResponse.ok) {
-        const biasData = await biasResponse.json();
-        setBiasOverview(biasData.data.summary);
-        setHighBiasTeachers(biasData.data.highBiasTeachers.teachers);
+      const logsData = await logsRes.json();
+      const rawLogs: AuditLog[] = logsData.data.logs ?? [];
+      const filtered = teacherOnly(rawLogs);
+
+      // Accumulate or replace based on whether this is first page
+      if (apiPage === 1) {
+        setAllLogs(filtered);
+      } else {
+        setAllLogs(prev => [...prev, ...filtered]);
       }
-      
-    } catch (err: any) {
-      setError(err.message || 'Failed to load dashboard data');
-    } finally {
-      setLoading(false);
-    }
+
+      setStats(logsData.data.stats);
+
+      // If API returned fewer rows than we asked for, no more pages exist
+      setHasMore(rawLogs.length === PAGE_LIMIT);
+
+      // Fetch bias data only on first load
+      if (apiPage === 1) {
+        const biasParams = new URLSearchParams({ type: 'overview' });
+        if (dateFrom) biasParams.append('dateFrom', dateFrom);
+        if (dateTo)   biasParams.append('dateTo',   dateTo);
+        const biasRes = await fetch(`/api/admin/bias-report?${biasParams}`);
+        if (biasRes.ok) {
+          const biasData = await biasRes.json();
+          setBiasOverview(biasData.data.summary);
+          setHighBiasTeachers(biasData.data.highBiasTeachers.teachers ?? []);
+        }
+      }
+    } catch (err: any) { setError(err.message || 'Failed to load dashboard data'); }
+    finally { setLoading(false); }
   };
 
   const handleExportCSV = async () => {
     try {
-      const params = new URLSearchParams({ type: 'overview', format: 'csv' });
-      if (dateFrom) params.append('dateFrom', dateFrom);
-      if (dateTo) params.append('dateTo', dateTo);
-      
-      const response = await fetch('/api/admin/bias-report/export', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          reportType: 'overview',
-          format: 'csv',
-          dateFrom,
-          dateTo,
-        }),
+      const res = await fetch('/api/admin/bias-report/export', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reportType: 'overview', format: 'csv', dateFrom, dateTo }),
       });
-      
-      if (!response.ok) throw new Error('Export failed');
-      
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `audit_report_${Date.now()}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      
-      alert('Report exported successfully!');
-    } catch (err: any) {
-      alert(`Export failed: ${err.message}`);
+      if (!res.ok) throw new Error('Export failed');
+      const blob = await res.blob();
+      const url  = window.URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url; a.download = `audit_report_${Date.now()}.csv`;
+      document.body.appendChild(a); a.click();
+      window.URL.revokeObjectURL(url); document.body.removeChild(a);
+    } catch (err: any) { alert(`Export failed: ${err.message}`); }
+  };
+
+  // Derived values for pagination
+  const visibleLogs  = paginate(allLogs, currentPage);
+  const totalPages   = Math.max(1, Math.ceil(allLogs.length / ROWS_PER_PAGE));
+  // If we're on the last UI page AND the API has more, fetch the next API page
+  const onLastUiPage = currentPage >= totalPages;
+
+  const handleNextPage = () => {
+    if (!onLastUiPage) {
+      // More rows already loaded — just advance UI page
+      setCurrentPage(p => p + 1);
+    } else if (hasMore && !loading) {
+      // Need to fetch next API page first, then advance UI
+      const nextApiPage = apiFetchPage + 1;
+      setApiFetchPage(nextApiPage);
+      // UI page will advance after new rows are appended
+      setCurrentPage(p => p + 1);
     }
   };
 
-  const getRiskColor = (riskLevel: string) => {
-    switch (riskLevel) {
-      case 'critical': return 'text-danger-600 bg-danger-100';
-      case 'high': return 'text-warning-600 bg-warning-100';
-      case 'medium': return 'text-primary-600 bg-primary-100';
-      default: return 'text-success-600 bg-success-100';
-    }
+  const handlePrevPage = () => {
+    setCurrentPage(p => Math.max(1, p - 1));
   };
 
-  const formatEventType = (type: string) => {
-    return type.split('_').map(word => 
-      word.charAt(0).toUpperCase() + word.slice(1)
-    ).join(' ');
-  };
+  const isNextDisabled = onLastUiPage && !hasMore;
+  const isPrevDisabled = currentPage === 1;
 
-  if (loading && logs.length === 0) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-          <p className="mt-4 text-secondary-600">Loading audit dashboard...</p>
+  /* ── Loading (initial) ── */
+  if (loading && allLogs.length === 0) return (
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+        html,body{background:#050505!important;margin:0;cursor:none!important;}
+        @keyframes spin{to{transform:rotate(360deg);}}
+        .c-dot{position:fixed;width:7px;height:7px;background:#fff;border-radius:50%;pointer-events:none;z-index:99999;transform:translate(-50%,-50%);mix-blend-mode:difference;}
+        .c-ring{position:fixed;width:32px;height:32px;border:1px solid rgba(255,255,255,0.6);border-radius:50%;pointer-events:none;z-index:99998;transform:translate(-50%,-50%);mix-blend-mode:difference;}
+      `}</style>
+      <DashCursor />
+      <div style={{ minHeight: '100vh', background: '#050505', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ width: 36, height: 36, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.07)', borderTop: '2px solid rgba(255,255,255,0.5)', animation: 'spin 0.7s linear infinite', margin: '0 auto' }} />
+          <p style={{ marginTop: '1rem', fontSize: '0.88rem', fontWeight: 500, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.06em' }}>Loading audit dashboard…</p>
         </div>
       </div>
-    );
-  }
+    </>
+  );
 
   return (
-    <div className="min-h-screen bg-secondary-50">
-      {/* Navigation Bar */}
-      <nav className="bg-white shadow-sm border-b border-secondary-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-4">
-              <Link href="/admin-dashboard" className="text-secondary-600 hover:text-secondary-900">
-                ← Back to Admin Dashboard
-              </Link>
-            </div>
-            <h1 className="text-xl font-bold text-primary-600">
-              Audit & Bias Detection Dashboard
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Bebas+Neue&display=swap');
+        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+        html{background:#050505!important;color-scheme:dark;}
+        body{background:#050505!important;color:#f0f0f0;font-family:'Inter',system-ui,sans-serif;overflow-x:hidden;cursor:none!important;}
+
+        .c-dot{position:fixed;width:7px;height:7px;background:#fff;border-radius:50%;pointer-events:none;z-index:99999;transform:translate(-50%,-50%);mix-blend-mode:difference;}
+        .c-ring{position:fixed;width:32px;height:32px;border:1px solid rgba(255,255,255,0.6);border-radius:50%;pointer-events:none;z-index:99998;transform:translate(-50%,-50%);mix-blend-mode:difference;}
+
+        @keyframes spin   { to{transform:rotate(360deg);} }
+        @keyframes fadeUp { from{opacity:0;transform:translateY(14px);} to{opacity:1;transform:translateY(0);} }
+
+        .fade-up  { animation:fadeUp 0.45s ease both; }
+        .fade-up2 { animation:fadeUp 0.45s ease both; animation-delay:0.07s; }
+        .fade-up3 { animation:fadeUp 0.45s ease both; animation-delay:0.13s; }
+
+        select option { background:#1a1a1a; color:#f0f0f0; }
+        input[type='date']::-webkit-calendar-picker-indicator { filter:invert(0.6); cursor:none; }
+
+        .audit-table { width:100%; border-collapse:collapse; }
+        .audit-table thead tr { border-bottom:1px solid rgba(255,255,255,0.07); }
+        .audit-table thead th { padding:0.65rem 1rem; text-align:left; font-size:0.63rem; font-weight:800; letter-spacing:0.14em; text-transform:uppercase; color:rgba(255,255,255,0.3); white-space:nowrap; }
+        .audit-table tbody tr { border-bottom:1px solid rgba(255,255,255,0.04); transition:background 0.15s; }
+        .audit-table tbody tr:last-child { border-bottom:none; }
+        .audit-table tbody tr:hover { background:rgba(255,255,255,0.025); }
+        .audit-table tbody td { padding:0.85rem 1rem; font-size:0.82rem; color:rgba(255,255,255,0.6); vertical-align:middle; }
+
+        .a-scroll::-webkit-scrollbar { height:3px; width:3px; }
+        .a-scroll::-webkit-scrollbar-track { background:transparent; }
+        .a-scroll::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.1); border-radius:10px; }
+      `}</style>
+
+      <DashCursor />
+
+      <div style={{ minHeight: '100vh', background: '#050505', fontFamily: "'Inter',system-ui,sans-serif" }}>
+
+        {/* ── Nav ── */}
+        <nav style={{ height: 52, background: 'rgba(5,5,5,0.92)', borderBottom: '1px solid rgba(255,255,255,0.07)', backdropFilter: 'blur(20px)', display: 'flex', alignItems: 'center', padding: '0 1.75rem', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50 }}>
+          <NavBack href="/admin-dashboard" label="Admin Dashboard" />
+          <div style={{ fontSize: '0.78rem', fontWeight: 500, color: 'rgba(255,255,255,0.28)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            EvalChain <span style={{ color: 'rgba(255,255,255,0.18)' }}>/</span>
+            <span style={{ color: 'rgba(255,255,255,0.55)' }}>Audit & Bias</span>
+          </div>
+          <ExportButton onClick={handleExportCSV} />
+        </nav>
+
+        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '2.25rem 1.25rem 4rem' }}>
+
+          {/* ── Heading ── */}
+          <div className="fade-up" style={{ marginBottom: '2rem' }}>
+            <div style={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.3)', marginBottom: '0.55rem' }}>Admin Portal</div>
+            <h1 style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 'clamp(2.4rem,5vw,3.5rem)', lineHeight: 0.95, color: '#ffffff', letterSpacing: '0.01em' }}>
+              AUDIT &amp;<br/>
+              <span style={{ WebkitTextStroke: '0.5px rgba(255,255,255,0.9)', color: 'transparent' }}>BIAS DETECTION</span>
             </h1>
-            <button
-              onClick={handleExportCSV}
-              className="btn btn-outline text-sm"
-            >
-              📥 Export CSV
-            </button>
-          </div>
-        </div>
-      </nav>
-
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats Cards */}
-        {biasOverview && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div className="card bg-gradient-to-br from-primary-500 to-primary-600 text-white">
-              <div className="text-3xl font-bold mb-2">{biasOverview.totalGrievances}</div>
-              <div className="text-primary-100">Total Grievances</div>
-            </div>
-            
-            <div className="card bg-gradient-to-br from-success-500 to-success-600 text-white">
-              <div className="text-3xl font-bold mb-2">{biasOverview.grievanceSuccessRate}%</div>
-              <div className="text-success-100">Success Rate</div>
-            </div>
-            
-            <div className="card bg-gradient-to-br from-warning-500 to-warning-600 text-white">
-              <div className="text-3xl font-bold mb-2">{biasOverview.teachersAtRisk}</div>
-              <div className="text-warning-100">Teachers at Risk</div>
-            </div>
-            
-            <div className="card bg-gradient-to-br from-danger-500 to-danger-600 text-white">
-              <div className="text-3xl font-bold mb-2">{biasOverview.criticalCases}</div>
-              <div className="text-danger-100">Critical Cases</div>
-            </div>
-          </div>
-        )}
-
-        {/* Tabs */}
-        <div className="card mb-6">
-          <div className="flex gap-4 border-b border-secondary-200 pb-4">
-            <button
-              onClick={() => setActiveTab('logs')}
-              className={`px-4 py-2 font-medium rounded-lg transition-colors ${
-                activeTab === 'logs'
-                  ? 'bg-primary-600 text-white'
-                  : 'text-secondary-600 hover:bg-secondary-100'
-              }`}
-            >
-              📋 Audit Logs
-            </button>
-            <button
-              onClick={() => setActiveTab('bias')}
-              className={`px-4 py-2 font-medium rounded-lg transition-colors ${
-                activeTab === 'bias'
-                  ? 'bg-primary-600 text-white'
-                  : 'text-secondary-600 hover:bg-secondary-100'
-              }`}
-            >
-              ⚠️ Bias Detection
-            </button>
-            <button
-              onClick={() => setActiveTab('grievances')}
-              className={`px-4 py-2 font-medium rounded-lg transition-colors ${
-                activeTab === 'grievances'
-                  ? 'bg-primary-600 text-white'
-                  : 'text-secondary-600 hover:bg-secondary-100'
-              }`}
-            >
-              📊 Grievance Analytics
-            </button>
           </div>
 
-          {/* Filters */}
-          <div className="grid md:grid-cols-4 gap-4 mt-6">
-            <div>
-              <label className="block text-sm font-medium text-secondary-700 mb-2">
-                Event Type
-              </label>
-              <select
-                className="input"
-                value={eventType}
-                onChange={(e) => setEventType(e.target.value)}
-              >
-                <option value="">All Events</option>
-                <option value="evaluation_started">Evaluation Started</option>
-                <option value="question_marked">Question Marked</option>
-                <option value="evaluation_completed">Evaluation Completed</option>
-                <option value="grievance_filed">Grievance Filed</option>
-                <option value="reevaluation_completed">Re-evaluation Completed</option>
-              </select>
+          {/* ── Stat cards ── */}
+          {biasOverview && (
+            <div className="fade-up2" style={{ display: 'flex', gap: '0.85rem', marginBottom: '1.25rem', flexWrap: 'wrap' as const }}>
+              <StatCard value={biasOverview.totalGrievances}            label="Total Grievances"  accent="rgba(147,197,253,1)" />
+              <StatCard value={`${biasOverview.grievanceSuccessRate}%`} label="Success Rate"      accent="rgba(74,222,128,1)"  />
+              <StatCard value={biasOverview.teachersAtRisk}             label="Teachers at Risk"  accent="rgba(253,224,71,1)"  />
+              <StatCard value={biasOverview.criticalCases}              label="Critical Cases"    accent="rgba(252,165,165,1)" />
             </div>
+          )}
 
-            <div>
-              <label className="block text-sm font-medium text-secondary-700 mb-2">
-                Department
-              </label>
-              <input
-                type="text"
-                className="input"
-                placeholder="Filter by department"
-                value={department}
-                onChange={(e) => setDepartment(e.target.value)}
-              />
+          {/* ── Tabs + Filters ── */}
+          <div className="fade-up3" style={{ background: '#090909', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '1.25rem 1.4rem', marginBottom: '1rem' }}>
+            <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '1.25rem', borderBottom: '1px solid rgba(255,255,255,0.07)', paddingBottom: '1rem' }}>
+              <TabBtn active={activeTab === 'logs'}       onClick={() => setActiveTab('logs')}>       📋 Audit Logs</TabBtn>
+              <TabBtn active={activeTab === 'bias'}       onClick={() => setActiveTab('bias')}>       ⚠️ Bias Detection</TabBtn>
+              <TabBtn active={activeTab === 'grievances'} onClick={() => setActiveTab('grievances')}> 📊 Grievance Analytics</TabBtn>
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-secondary-700 mb-2">
-                Date From
-              </label>
-              <input
-                type="date"
-                className="input"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-secondary-700 mb-2">
-                Date To
-              </label>
-              <input
-                type="date"
-                className="input"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Tab Content */}
-        {activeTab === 'logs' && (
-          <div className="card">
-            <h3 className="text-lg font-semibold mb-4">Audit Logs</h3>
-            
-            {error && (
-              <div className="p-4 bg-danger-50 border border-danger-200 rounded-lg mb-4">
-                <p className="text-danger-700 text-sm">{error}</p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '0.85rem' }}>
+              <div><FLabel>Event Type</FLabel>
+                <DarkSelect value={eventType} onChange={e => { setEventType(e.target.value); }}>
+                  <option value="">All Events</option>
+                  <option value="evaluation_started">Evaluation Started</option>
+                  <option value="question_marked">Question Marked</option>
+                  <option value="evaluation_completed">Evaluation Completed</option>
+                  <option value="grievance_filed">Grievance Filed</option>
+                  <option value="reevaluation_completed">Re-evaluation Completed</option>
+                </DarkSelect>
               </div>
-            )}
+              <div><FLabel>Department</FLabel>
+                <DarkInput type="text" placeholder="Filter by department" value={department} onChange={e => setDepartment(e.target.value)} />
+              </div>
+              <div><FLabel>Date From</FLabel>
+                <DarkInput type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+              </div>
+              <div><FLabel>Date To</FLabel>
+                <DarkInput type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} />
+              </div>
+            </div>
+          </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-secondary-100">
-                  <tr>
-                    <th className="px-4 py-3 text-left">Timestamp</th>
-                    <th className="px-4 py-3 text-left">Event Type</th>
-                    <th className="px-4 py-3 text-left">User</th>
-                    <th className="px-4 py-3 text-left">Role</th>
-                    <th className="px-4 py-3 text-left">Department</th>
-                    <th className="px-4 py-3 text-left">Details</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-secondary-200">
-                  {logs.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center text-secondary-500">
-                        No audit logs found
-                      </td>
-                    </tr>
-                  ) : (
-                    logs.map((log) => (
-                      <tr key={log.auditId} className="hover:bg-secondary-50">
-                        <td className="px-4 py-3">
-                          {new Date(log.timestamp).toLocaleString()}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="badge badge-primary">
-                            {formatEventType(log.eventType)}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 font-medium">{log.userName}</td>
-                        <td className="px-4 py-3">
-                          <span className={`badge ${
-                            log.userRole === 'teacher' ? 'badge-success' :
-                            log.userRole === 'student' ? 'badge-primary' :
-                            'badge-secondary'
-                          }`}>
-                            {log.userRole}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">{log.department}</td>
-                        <td className="px-4 py-3 text-xs">
-                          {log.questionNumber && `Q${log.questionNumber} `}
-                          {log.marksAwarded !== undefined && `(${log.marksAwarded} marks) `}
-                          {log.timeSpent && `${log.timeSpent}s`}
-                          {log.markingPattern && (
-                            <span className={`ml-2 badge ${
-                              log.markingPattern === 'strict' ? 'badge-danger' :
-                              log.markingPattern === 'lenient' ? 'badge-success' :
-                              'badge-secondary'
-                            }`}>
-                              {log.markingPattern}
-                            </span>
-                          )}
+          {/* ── TAB: Audit Logs ── */}
+          {activeTab === 'logs' && (
+            <div style={{ background: '#090909', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '1.4rem' }}>
+
+              {/* Header */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                  <div style={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.35)' }}>
+                    Teacher &amp; Admin Logs
+                  </div>
+                  <div style={{ padding: '0.18rem 0.6rem', borderRadius: 100, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', fontFamily: "'Bebas Neue',sans-serif", fontSize: '1rem', color: 'rgba(255,255,255,0.5)', lineHeight: 1 }}>
+                    {allLogs.length}{hasMore ? '+' : ''}
+                  </div>
+                </div>
+                {loading && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.07)', borderTop: '2px solid rgba(255,255,255,0.4)', animation: 'spin 0.7s linear infinite' }} />
+                    <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.3)' }}>Loading…</span>
+                  </div>
+                )}
+              </div>
+
+              {error && (
+                <div style={{ marginBottom: '1rem', padding: '0.8rem 1rem', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 9, display: 'flex', gap: '0.5rem' }}>
+                  <span>⚠️</span>
+                  <p style={{ fontSize: '0.83rem', fontWeight: 600, color: 'rgba(252,165,165,0.95)' }}>{error}</p>
+                </div>
+              )}
+
+              {/* Table */}
+              <div className="a-scroll" style={{ overflowX: 'auto' }}>
+                <table className="audit-table">
+                  <thead>
+                    <tr>{['Timestamp', 'Event', 'User', 'Role', 'Department', 'Details'].map(h => <th key={h}>{h}</th>)}</tr>
+                  </thead>
+                  <tbody>
+                    {visibleLogs.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} style={{ textAlign: 'center', padding: '3rem', color: 'rgba(255,255,255,0.3)', fontSize: '0.85rem' }}>
+                          No teacher logs found
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {stats && (
-              <div className="mt-6 p-4 bg-secondary-50 rounded-lg">
-                <h4 className="font-semibold mb-3">Event Type Summary</h4>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {Object.entries(stats.eventTypeCounts).map(([type, count]) => (
-                    <div key={type} className="text-sm">
-                      <span className="text-secondary-600">{formatEventType(type)}:</span>
-                      <span className="font-bold ml-2">{count}</span>
-                    </div>
-                  ))}
-                </div>
+                    ) : visibleLogs.map(log => {
+                      const rc = roleConfig(log.userRole);
+                      return (
+                        <tr key={log.auditId}>
+                          <td style={{ whiteSpace: 'nowrap', fontSize: '0.75rem', fontFamily: 'monospace', color: 'rgba(255,255,255,0.38)' }}>
+                            {new Date(log.timestamp).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                          </td>
+                          <td>
+                            <span style={{ padding: '0.2rem 0.6rem', borderRadius: 100, background: 'rgba(147,197,253,0.1)', border: '1px solid rgba(147,197,253,0.22)', fontSize: '0.62rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase' as const, color: 'rgba(147,197,253,0.85)', whiteSpace: 'nowrap' as const }}>
+                              {formatEvent(log.eventType)}
+                            </span>
+                          </td>
+                          <td style={{ fontWeight: 700, color: 'rgba(255,255,255,0.75)' }}>{log.userName || '—'}</td>
+                          <td><Pill label={log.userRole || '—'} color={rc.color} bg={rc.bg} border={rc.border} /></td>
+                          <td style={{ color: 'rgba(255,255,255,0.5)' }}>{log.department || '—'}</td>
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' as const }}>
+                              {log.questionNumber   && <span style={{ fontSize: '0.73rem', fontWeight: 600, color: 'rgba(255,255,255,0.45)' }}>Q{log.questionNumber}</span>}
+                              {log.marksAwarded !== undefined && <span style={{ fontSize: '0.73rem', fontWeight: 600, color: 'rgba(255,255,255,0.45)' }}>{log.marksAwarded} pts</span>}
+                              {log.timeSpent        && <span style={{ fontSize: '0.73rem', fontWeight: 600, color: 'rgba(255,255,255,0.35)' }}>{log.timeSpent}s</span>}
+                              {log.markingPattern   && (() => { const pc = patternConfig(log.markingPattern!); return <Pill label={log.markingPattern!} color={pc.color} bg={pc.bg} border={pc.border} />; })()}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-            )}
-          </div>
-        )}
 
-        {activeTab === 'bias' && (
-          <div className="space-y-6">
-            <div className="card">
-              <h3 className="text-lg font-semibold mb-4">High Bias Risk Teachers</h3>
-              
-              {highBiasTeachers.length === 0 ? (
-                <div className="text-center py-8 text-secondary-500">
-                  <div className="text-4xl mb-3">✅</div>
-                  <p>No high-risk teachers detected</p>
+              {/* ── Pagination ── */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+                <PaginationBtn dir="prev" disabled={isPrevDisabled} onClick={handlePrevPage} />
+
+                {/* Page info */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'rgba(255,255,255,0.35)' }}>
+                    Page {currentPage} of {totalPages}{hasMore ? '+' : ''}
+                  </span>
+                  {/* Page number pills */}
+                  <div style={{ display: 'flex', gap: '0.3rem' }}>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                      .filter(p => Math.abs(p - currentPage) <= 2)
+                      .map(p => (
+                        <button key={p} onClick={() => setCurrentPage(p)}
+                          style={{ width: 28, height: 28, borderRadius: 7, fontFamily: 'inherit', fontSize: '0.75rem', fontWeight: 700, cursor: 'none', border: p === currentPage ? '1px solid rgba(255,255,255,0.3)' : '1px solid rgba(255,255,255,0.08)', background: p === currentPage ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.03)', color: p === currentPage ? '#fff' : 'rgba(255,255,255,0.4)', transition: 'all 0.15s' }}>
+                          {p}
+                        </button>
+                      ))
+                    }
+                  </div>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  {highBiasTeachers.map((teacher) => (
-                    <div
-                      key={teacher.teacherId}
-                      className="flex items-center justify-between p-4 bg-secondary-50 rounded-lg border-2 border-secondary-200"
-                    >
-                      <div>
-                        <p className="font-semibold">{teacher.teacherName}</p>
-                        <p className="text-sm text-secondary-600">{teacher.teacherId}</p>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <div className="text-right">
-                          <p className="text-2xl font-bold">{teacher.biasScore.toFixed(1)}</p>
-                          <p className="text-xs text-secondary-600">Bias Score</p>
+
+                <PaginationBtn
+                  dir="next"
+                  disabled={isNextDisabled}
+                  loading={loading && onLastUiPage}
+                  onClick={handleNextPage}
+                />
+              </div>
+
+              {/* Event summary */}
+              {stats && Object.keys(stats.eventTypeCounts).length > 0 && (
+                <div style={{ marginTop: '1rem', padding: '1rem 1.1rem', background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10 }}>
+                  <div style={{ fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.3)', marginBottom: '0.75rem' }}>Event Type Summary</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap' as const, gap: '0.55rem' }}>
+                    {Object.entries(stats.eventTypeCounts)
+                      .filter(([type]) => !!type)
+                      .map(([type, count]) => (
+                        <div key={type} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.25rem 0.7rem', borderRadius: 100, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                          <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'rgba(255,255,255,0.45)' }}>{formatEvent(type)}</span>
+                          <span style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: '1rem', color: 'rgba(255,255,255,0.7)', lineHeight: 1 }}>{count}</span>
                         </div>
-                        <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                          getRiskColor(teacher.riskLevel)
-                        }`}>
-                          {teacher.riskLevel.toUpperCase()}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                      ))}
+                  </div>
                 </div>
               )}
             </div>
-          </div>
-        )}
+          )}
 
-        {activeTab === 'grievances' && biasOverview && (
-          <div className="card">
-            <h3 className="text-lg font-semibold mb-4">Grievance Analytics</h3>
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="p-4 bg-secondary-50 rounded-lg">
-                <h4 className="font-semibold mb-3">Overall Statistics</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-secondary-600">Total Grievances:</span>
-                    <span className="font-bold">{biasOverview.totalGrievances}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-secondary-600">Success Rate:</span>
-                    <span className="font-bold text-success-600">
-                      {biasOverview.grievanceSuccessRate}%
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-secondary-600">Teachers at Risk:</span>
-                    <span className="font-bold text-warning-600">
-                      {biasOverview.teachersAtRisk}
-                    </span>
+          {/* ── TAB: Bias Detection ── */}
+          {activeTab === 'bias' && (
+            <div style={{ background: '#090909', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '1.4rem' }}>
+              <div style={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.35)', marginBottom: '1.1rem' }}>
+                High Bias Risk Teachers
+              </div>
+              {highBiasTeachers.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '4rem 2rem' }}>
+                  <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>✅</div>
+                  <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'rgba(74,222,128,0.8)' }}>No high-risk teachers detected</div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {highBiasTeachers.map(t => {
+                    const rc = riskConfig(t.riskLevel);
+                    return (
+                      <div key={t.teacherId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem 1.2rem', background: 'rgba(255,255,255,0.025)', border: `1px solid ${rc.border}`, borderRadius: 11, position: 'relative', overflow: 'hidden' }}>
+                        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: rc.color, opacity: 0.7 }} />
+                        <div>
+                          <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'rgba(255,255,255,0.82)', marginBottom: '0.2rem' }}>{t.teacherName}</div>
+                          <div style={{ fontSize: '0.72rem', fontFamily: 'monospace', color: 'rgba(255,255,255,0.3)' }}>{t.teacherId}</div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: '2rem', lineHeight: 1, color: rc.color }}>{t.biasScore.toFixed(1)}</div>
+                            <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.3)' }}>Bias Score</div>
+                          </div>
+                          <Pill label={t.riskLevel.toUpperCase()} color={rc.color} bg={rc.bg} border={rc.border} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── TAB: Grievance Analytics ── */}
+          {activeTab === 'grievances' && biasOverview && (
+            <div style={{ background: '#090909', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '1.4rem' }}>
+              <div style={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.35)', marginBottom: '1.25rem' }}>
+                Grievance Analytics
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 11, padding: '1.1rem 1.2rem' }}>
+                  <div style={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.3)', marginBottom: '0.9rem' }}>Overall Statistics</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                    {[
+                      { k: 'Total Grievances', v: biasOverview.totalGrievances,            color: 'rgba(147,197,253,1)' },
+                      { k: 'Success Rate',     v: `${biasOverview.grievanceSuccessRate}%`, color: 'rgba(74,222,128,1)'  },
+                      { k: 'Teachers at Risk', v: biasOverview.teachersAtRisk,             color: 'rgba(253,224,71,1)'  },
+                    ].map(row => (
+                      <div key={row.k} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'rgba(255,255,255,0.45)' }}>{row.k}</span>
+                        <span style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: '1.5rem', lineHeight: 1, color: row.color }}>{row.v}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              </div>
-
-              <div className="p-4 bg-danger-50 rounded-lg">
-                <h4 className="font-semibold mb-3 text-danger-800">Critical Cases</h4>
-                <div className="text-center">
-                  <p className="text-4xl font-bold text-danger-600 mb-2">
-                    {biasOverview.criticalCases}
-                  </p>
-                  <p className="text-sm text-danger-700">
-                    Require immediate review
-                  </p>
+                <div style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 11, padding: '1.1rem 1.2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', position: 'relative', overflow: 'hidden' }}>
+                  <div style={{ position: 'absolute', top: -20, right: -20, width: 80, height: 80, borderRadius: '50%', background: 'rgba(239,68,68,0.15)', filter: 'blur(25px)', pointerEvents: 'none' }} />
+                  <div style={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: 'rgba(252,165,165,0.6)' }}>Critical Cases</div>
+                  <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: '5rem', lineHeight: 0.9, color: 'rgba(252,165,165,1)' }}>{biasOverview.criticalCases}</div>
+                  <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'rgba(252,165,165,0.6)' }}>Require immediate review</div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+
+        </div>
       </div>
+
       <FloatingChat />
-    </div>
+    </>
+  );
+}
+
+/* ─── Pagination btn ─── */
+function PaginationBtn({ dir, disabled, loading, onClick }: { dir: 'prev' | 'next'; disabled: boolean; loading?: boolean; onClick: () => void }) {
+  const [h, setH] = useState(false);
+  return (
+    <button onClick={onClick} disabled={disabled || loading}
+      style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.4rem 0.85rem', borderRadius: 8, background: h && !disabled ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.03)', border: `1px solid ${h && !disabled ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.08)'}`, fontSize: '0.78rem', fontWeight: 700, color: disabled ? 'rgba(255,255,255,0.2)' : h ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.4)', cursor: disabled ? 'not-allowed' : 'none', fontFamily: 'inherit', transition: 'all 0.2s', opacity: disabled ? 0.4 : 1 }}
+      onMouseEnter={() => setH(true)} onMouseLeave={() => setH(false)}>
+      {dir === 'prev' && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>}
+      {loading
+        ? <div style={{ width: 11, height: 11, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.15)', borderTop: '2px solid rgba(255,255,255,0.5)', animation: 'spin 0.7s linear infinite' }} />
+        : (dir === 'prev' ? 'Prev' : 'Next')
+      }
+      {dir === 'next' && !loading && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>}
+    </button>
   );
 }

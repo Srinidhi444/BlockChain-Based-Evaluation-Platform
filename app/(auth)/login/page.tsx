@@ -5,132 +5,144 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 
 export default function LoginPage() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [formData, setFormData] = useState({ userId: '', password: '' });
-  const [error, setError]       = useState('');
-  const [success, setSuccess]   = useState('');
-  const [loading, setLoading]   = useState(false);
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const [formData, setFormData] = useState({ userId: '', password: '' });
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
+    const [loading, setLoading] = useState(false);
 
-  /* ─── CANVAS GRID ─── */
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d')!;
-    let W = (canvas.width = window.innerWidth);
-    let H = (canvas.height = window.innerHeight);
-    let mx = W / 2, my = H / 2, tmx = mx, tmy = my;
-    const CELL = 52, RADIUS = 200, STRENGTH = 36;
+    /* ─── CANVAS GRID ─── */
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d')!;
+        let W = (canvas.width = window.innerWidth);
+        let H = (canvas.height = window.innerHeight);
+        let mx = W / 2, my = H / 2, tmx = mx, tmy = my;
+        const CELL = 52, RADIUS = 200, STRENGTH = 36;
 
-    const onResize = () => { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; };
-    const onMove   = (e: MouseEvent) => { tmx = e.clientX; tmy = e.clientY; };
-    window.addEventListener('resize', onResize);
-    window.addEventListener('mousemove', onMove);
+        const onResize = () => { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; };
+        const onMove = (e: MouseEvent) => { tmx = e.clientX; tmy = e.clientY; };
+        window.addEventListener('resize', onResize);
+        window.addEventListener('mousemove', onMove);
 
-    let raf: number;
-    const draw = () => {
-      mx += (tmx - mx) * 0.07; my += (tmy - my) * 0.07;
-      ctx.clearRect(0, 0, W, H);
+        let raf: number;
+        const draw = () => {
+            mx += (tmx - mx) * 0.07; my += (tmy - my) * 0.07;
+            ctx.clearRect(0, 0, W, H);
 
-      for (let x = 0; x <= W + CELL; x += CELL) {
-        ctx.beginPath();
-        for (let y = 0; y <= H; y += 3) {
-          const dx = x - mx, dy = y - my;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          const inf = Math.max(0, 1 - dist / RADIUS);
-          const ease = inf * inf * (3 - 2 * inf);
-          const angle = Math.atan2(dy, dx);
-          const push = ease * STRENGTH;
-          const px = x + Math.cos(angle) * push, py = y + Math.sin(angle) * push;
-          y === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+            for (let x = 0; x <= W + CELL; x += CELL) {
+                ctx.beginPath();
+                for (let y = 0; y <= H; y += 3) {
+                    const dx = x - mx, dy = y - my;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    const inf = Math.max(0, 1 - dist / RADIUS);
+                    const ease = inf * inf * (3 - 2 * inf);
+                    const angle = Math.atan2(dy, dx);
+                    const push = ease * STRENGTH;
+                    const px = x + Math.cos(angle) * push, py = y + Math.sin(angle) * push;
+                    y === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+                }
+                ctx.strokeStyle = 'rgba(255,255,255,0.13)';
+                ctx.lineWidth = 0.7;
+                ctx.stroke();
+            }
+            for (let y = 0; y <= H + CELL; y += CELL) {
+                ctx.beginPath();
+                for (let x = 0; x <= W; x += 3) {
+                    const dx = x - mx, dy = y - my;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    const inf = Math.max(0, 1 - dist / RADIUS);
+                    const ease = inf * inf * (3 - 2 * inf);
+                    const angle = Math.atan2(dy, dx);
+                    const push = ease * STRENGTH;
+                    const px = x + Math.cos(angle) * push, py = y + Math.sin(angle) * push;
+                    x === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+                }
+                ctx.strokeStyle = 'rgba(255,255,255,0.13)';
+                ctx.lineWidth = 0.7;
+                ctx.stroke();
+            }
+
+            // Bright cursor glow
+            const grad = ctx.createRadialGradient(mx, my, 0, mx, my, RADIUS);
+            grad.addColorStop(0, 'rgba(255,255,255,0.12)');
+            grad.addColorStop(0.4, 'rgba(255,255,255,0.04)');
+            grad.addColorStop(1, 'rgba(255,255,255,0)');
+            ctx.fillStyle = grad;
+            ctx.beginPath(); ctx.arc(mx, my, RADIUS, 0, Math.PI * 2); ctx.fill();
+
+            raf = requestAnimationFrame(draw);
+        };
+        draw();
+
+        return () => {
+            cancelAnimationFrame(raf);
+            window.removeEventListener('resize', onResize);
+            window.removeEventListener('mousemove', onMove);
+        };
+    }, []);
+
+    /* ─── GSAP ENTRANCE ─── */
+    useEffect(() => {
+        const init = async () => {
+            const gsapMod = await import('gsap');
+            const gsap = gsapMod.gsap ?? (gsapMod as any).default;
+
+            gsap.set(['#login-eyebrow', '#login-title', '#login-sub', '#login-card', '#back-link', '#creds-box'], {
+                opacity: 0, y: 32,
+            });
+
+            const tl = gsap.timeline({ delay: 0.1, defaults: { ease: 'power3.out' } });
+            tl
+                .to('#login-eyebrow', { opacity: 1, y: 0, duration: 0.7 })
+                .to('#login-title', { opacity: 1, y: 0, duration: 0.85 }, '-=0.4')
+                .to('#login-sub', { opacity: 1, y: 0, duration: 0.7 }, '-=0.45')
+                .to('#login-card', { opacity: 1, y: 0, duration: 0.9 }, '-=0.4')
+                .to('#back-link', { opacity: 1, y: 0, duration: 0.6 }, '-=0.3')
+                .to('#creds-box', { opacity: 1, y: 0, duration: 0.6 }, '-=0.3');
+        };
+        init();
+    }, []);
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+        setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError(''); setSuccess(''); setLoading(true);
+        try {
+            const res = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify(formData),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Login failed');
+
+            // ── Role-based redirect ──
+            const roleRoutes: Record<string, string> = {
+                admin: '/audit-dashboard',
+                teacher: '/dashboard',
+                student: '/dashboard',
+            };
+            const role = data.data.user.role as string;
+            const destination = roleRoutes[role] ?? '/dashboard';
+
+            setSuccess(`Signed in as ${role}. Redirecting…`);
+            setTimeout(() => { window.location.href = destination; }, 1000);
+
+        } catch (err: any) {
+            setError(err.message || 'An error occurred during login');
+            setLoading(false);
         }
-        ctx.strokeStyle = 'rgba(255,255,255,0.13)';
-        ctx.lineWidth = 0.7;
-        ctx.stroke();
-      }
-      for (let y = 0; y <= H + CELL; y += CELL) {
-        ctx.beginPath();
-        for (let x = 0; x <= W; x += 3) {
-          const dx = x - mx, dy = y - my;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          const inf = Math.max(0, 1 - dist / RADIUS);
-          const ease = inf * inf * (3 - 2 * inf);
-          const angle = Math.atan2(dy, dx);
-          const push = ease * STRENGTH;
-          const px = x + Math.cos(angle) * push, py = y + Math.sin(angle) * push;
-          x === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
-        }
-        ctx.strokeStyle = 'rgba(255,255,255,0.13)';
-        ctx.lineWidth = 0.7;
-        ctx.stroke();
-      }
-
-      // Bright cursor glow
-      const grad = ctx.createRadialGradient(mx, my, 0, mx, my, RADIUS);
-      grad.addColorStop(0, 'rgba(255,255,255,0.12)');
-      grad.addColorStop(0.4, 'rgba(255,255,255,0.04)');
-      grad.addColorStop(1, 'rgba(255,255,255,0)');
-      ctx.fillStyle = grad;
-      ctx.beginPath(); ctx.arc(mx, my, RADIUS, 0, Math.PI * 2); ctx.fill();
-
-      raf = requestAnimationFrame(draw);
     };
-    draw();
 
-    return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener('resize', onResize);
-      window.removeEventListener('mousemove', onMove);
-    };
-  }, []);
 
-  /* ─── GSAP ENTRANCE ─── */
-  useEffect(() => {
-    const init = async () => {
-      const gsapMod = await import('gsap');
-      const gsap = gsapMod.gsap ?? (gsapMod as any).default;
-
-      gsap.set(['#login-eyebrow','#login-title','#login-sub','#login-card','#back-link','#creds-box'], {
-        opacity: 0, y: 32,
-      });
-
-      const tl = gsap.timeline({ delay: 0.1, defaults: { ease: 'power3.out' } });
-      tl
-        .to('#login-eyebrow', { opacity: 1, y: 0, duration: 0.7 })
-        .to('#login-title',   { opacity: 1, y: 0, duration: 0.85 }, '-=0.4')
-        .to('#login-sub',     { opacity: 1, y: 0, duration: 0.7  }, '-=0.45')
-        .to('#login-card',    { opacity: 1, y: 0, duration: 0.9  }, '-=0.4')
-        .to('#back-link',     { opacity: 1, y: 0, duration: 0.6  }, '-=0.3')
-        .to('#creds-box',     { opacity: 1, y: 0, duration: 0.6  }, '-=0.3');
-    };
-    init();
-  }, []);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) =>
-    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(''); setSuccess(''); setLoading(true);
-    try {
-      const res  = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(formData),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Login failed');
-      setSuccess(`Signed in as ${data.data.user.role}. Redirecting…`);
-      setTimeout(() => { window.location.href = '/dashboard'; }, 1000);
-    } catch (err: any) {
-      setError(err.message || 'An error occurred during login');
-      setLoading(false);
-    }
-  };
-
-  return (
-    <>
-      <style>{`
+    return (
+        <>
+            <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&family=Bebas+Neue&display=swap');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         html { background: #050505 !important; color-scheme: dark; }
@@ -442,154 +454,154 @@ export default function LoginPage() {
         }
       `}</style>
 
-      <LoginCursor />
-      <canvas ref={canvasRef} id="lgc" />
+            <LoginCursor />
+            <canvas ref={canvasRef} id="lgc" />
 
-      {/* ─── Navbar ─── */}
-      <nav id="login-nav">
-        <Link href="/" className="ln-logo">
-          <div className="ln-logo-mark">🎓</div>
-          EvalChain
-        </Link>
-        <span className="nav-secure">Secure Login</span>
-      </nav>
+            {/* ─── Navbar ─── */}
+            <nav id="login-nav">
+                <Link href="/" className="ln-logo">
+                    <div className="ln-logo-mark">🎓</div>
+                    EvalChain
+                </Link>
+                <span className="nav-secure">Secure Login</span>
+            </nav>
 
-      {/* ─── Page ─── */}
-      <div id="login-root">
-        <div className="login-inner">
+            {/* ─── Page ─── */}
+            <div id="login-root">
+                <div className="login-inner">
 
-          {/* Eyebrow */}
-          <div id="login-eyebrow">
-            <span className="eyebrow-dot" />
-            Authentication Portal
-          </div>
+                    {/* Eyebrow */}
+                    <div id="login-eyebrow">
+                        <span className="eyebrow-dot" />
+                        Authentication Portal
+                    </div>
 
-          {/* Headline */}
-          <div id="login-title">
-            <span className="lt-solid">WELCOME</span>
-            <span className="lt-outline">BACK</span>
-          </div>
+                    {/* Headline */}
+                    <div id="login-title">
+                        <span className="lt-solid">WELCOME</span>
+                        <span className="lt-outline">BACK</span>
+                    </div>
 
-          <p id="login-sub">
-            Sign in to access your evaluation dashboard.
-            Your session is secured and encrypted.
-          </p>
+                    <p id="login-sub">
+                        Sign in to access your evaluation dashboard.
+                        Your session is secured and encrypted.
+                    </p>
 
-          {/* ─── Card ─── */}
-          <div id="login-card">
+                    {/* ─── Card ─── */}
+                    <div id="login-card">
 
-            {error && (
-              <div className="alert alert-error">
-                <span>⚠</span>
-                <span>{error}</span>
-              </div>
-            )}
-            {success && (
-              <div className="alert alert-success">
-                <span>✓</span>
-                <span>{success}</span>
-              </div>
-            )}
+                        {error && (
+                            <div className="alert alert-error">
+                                <span>⚠</span>
+                                <span>{error}</span>
+                            </div>
+                        )}
+                        {success && (
+                            <div className="alert alert-success">
+                                <span>✓</span>
+                                <span>{success}</span>
+                            </div>
+                        )}
 
-            <form onSubmit={handleSubmit}>
-              <div className="form-group">
-                <label htmlFor="userId" className="form-label">User ID</label>
-                <input
-                  id="userId" name="userId" type="text" required
-                  autoComplete="username"
-                  className="form-input"
-                  placeholder="ST2026001 or TCH2026001"
-                  value={formData.userId}
-                  onChange={handleChange}
-                  disabled={loading}
-                />
-              </div>
+                        <form onSubmit={handleSubmit}>
+                            <div className="form-group">
+                                <label htmlFor="userId" className="form-label">User ID</label>
+                                <input
+                                    id="userId" name="userId" type="text" required
+                                    autoComplete="username"
+                                    className="form-input"
+                                    placeholder="ST2026001 or TCH2026001"
+                                    value={formData.userId}
+                                    onChange={handleChange}
+                                    disabled={loading}
+                                />
+                            </div>
 
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label htmlFor="password" className="form-label">Password</label>
-                <input
-                  id="password" name="password" type="password" required
-                  autoComplete="current-password"
-                  className="form-input"
-                  placeholder="••••••••"
-                  value={formData.password}
-                  onChange={handleChange}
-                  disabled={loading}
-                />
-              </div>
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label htmlFor="password" className="form-label">Password</label>
+                                <input
+                                    id="password" name="password" type="password" required
+                                    autoComplete="current-password"
+                                    className="form-input"
+                                    placeholder="••••••••"
+                                    value={formData.password}
+                                    onChange={handleChange}
+                                    disabled={loading}
+                                />
+                            </div>
 
-              <button type="submit" className="submit-btn" disabled={loading}>
-                {loading
-                  ? <><span className="spinner" /> Signing in…</>
-                  : <>Sign In →</>
-                }
-              </button>
-            </form>
+                            <button type="submit" className="submit-btn" disabled={loading}>
+                                {loading
+                                    ? <><span className="spinner" /> Signing in…</>
+                                    : <>Sign In →</>
+                                }
+                            </button>
+                        </form>
 
-            <div className="card-divider" />
+                        <div className="card-divider" />
 
-            {/* Role chips */}
-            <div className="role-chips">
-              {[['👨‍🎓','Student'],['👩‍🏫','Teacher'],['🛡️','Admin']].map(([ic, role]) => (
-                <div key={role} className="role-chip">
-                  <div className="role-chip-icon">{ic}</div>
-                  <div className="role-chip-label">{role}</div>
+                        {/* Role chips */}
+                        <div className="role-chips">
+                            {[['👨‍🎓', 'Student'], ['👩‍🏫', 'Teacher'], ['🛡️', 'Admin']].map(([ic, role]) => (
+                                <div key={role} className="role-chip">
+                                    <div className="role-chip-icon">{ic}</div>
+                                    <div className="role-chip-label">{role}</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Back */}
+                    <Link href="/" id="back-link">
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                            <path d="M8 2L4 6L8 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                        Back to Home
+                    </Link>
+
+                    {/* Creds */}
+                    <div id="creds-box">
+                        <div className="creds-title">Test Credentials</div>
+                        {[
+                            { role: 'Student', val: 'ST2026001 / password123' },
+                            { role: 'Teacher', val: 'TCH2026001 / password123' },
+                        ].map(c => (
+                            <div key={c.role} className="creds-row">
+                                <span className="creds-role">{c.role}</span>
+                                <span className="creds-val">{c.val}</span>
+                            </div>
+                        ))}
+                    </div>
+
                 </div>
-              ))}
             </div>
-          </div>
-
-          {/* Back */}
-          <Link href="/" id="back-link">
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-              <path d="M8 2L4 6L8 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            Back to Home
-          </Link>
-
-          {/* Creds */}
-          <div id="creds-box">
-            <div className="creds-title">Test Credentials</div>
-            {[
-              { role: 'Student', val: 'ST2026001 / password123' },
-              { role: 'Teacher', val: 'TCH2026001 / password123' },
-            ].map(c => (
-              <div key={c.role} className="creds-row">
-                <span className="creds-role">{c.role}</span>
-                <span className="creds-val">{c.val}</span>
-              </div>
-            ))}
-          </div>
-
-        </div>
-      </div>
-    </>
-  );
+        </>
+    );
 }
 
 /* ─── Cursor ─── */
 function LoginCursor() {
-  const dotRef  = useRef<HTMLDivElement>(null);
-  const ringRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    let dx = window.innerWidth / 2, dy = window.innerHeight / 2;
-    let rx = dx, ry = dy;
-    let raf: number;
-    const onMove = (e: MouseEvent) => { dx = e.clientX; dy = e.clientY; };
-    window.addEventListener('mousemove', onMove);
-    const loop = () => {
-      if (dotRef.current)  { dotRef.current.style.left  = dx + 'px'; dotRef.current.style.top  = dy + 'px'; }
-      rx += (dx - rx) * 0.11; ry += (dy - ry) * 0.11;
-      if (ringRef.current) { ringRef.current.style.left = rx + 'px'; ringRef.current.style.top = ry + 'px'; }
-      raf = requestAnimationFrame(loop);
-    };
-    loop();
-    return () => { window.removeEventListener('mousemove', onMove); cancelAnimationFrame(raf); };
-  }, []);
-  return (
-    <>
-      <div ref={dotRef}  className="c-dot" />
-      <div ref={ringRef} className="c-ring" />
-    </>
-  );
+    const dotRef = useRef<HTMLDivElement>(null);
+    const ringRef = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        let dx = window.innerWidth / 2, dy = window.innerHeight / 2;
+        let rx = dx, ry = dy;
+        let raf: number;
+        const onMove = (e: MouseEvent) => { dx = e.clientX; dy = e.clientY; };
+        window.addEventListener('mousemove', onMove);
+        const loop = () => {
+            if (dotRef.current) { dotRef.current.style.left = dx + 'px'; dotRef.current.style.top = dy + 'px'; }
+            rx += (dx - rx) * 0.11; ry += (dy - ry) * 0.11;
+            if (ringRef.current) { ringRef.current.style.left = rx + 'px'; ringRef.current.style.top = ry + 'px'; }
+            raf = requestAnimationFrame(loop);
+        };
+        loop();
+        return () => { window.removeEventListener('mousemove', onMove); cancelAnimationFrame(raf); };
+    }, []);
+    return (
+        <>
+            <div ref={dotRef} className="c-dot" />
+            <div ref={ringRef} className="c-ring" />
+        </>
+    );
 }

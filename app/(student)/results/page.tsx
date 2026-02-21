@@ -1,200 +1,395 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
 interface Submission {
-  _id: string;
-  submissionId: string;
-  testId: string;
-  subject: string;
-  status: string;
-  uploadedAt: string;
-  answerSheetUrl: string;
+  _id: string; submissionId: string; testId: string;
+  subject: string; status: string; uploadedAt: string; answerSheetUrl: string;
 }
-
 interface Evaluation {
-  _id: string;
-  evaluationId: string;
-  totalMarksObtained: number;
-  totalMarks: number;
-  percentage: number;
-  questionMarks: Array<{
-    questionNumber: number;
-    maxMarks: number;
-    marksObtained: number;
-    comment?: string;
-  }>;
-  remarks?: string;
-  evaluatedAt: string;
-  teacherName: string;
+  _id: string; evaluationId: string; totalMarksObtained: number;
+  totalMarks: number; percentage: number;
+  questionMarks: Array<{ questionNumber: number; maxMarks: number; marksObtained: number; comment?: string }>;
+  remarks?: string; evaluatedAt: string; teacherName: string;
 }
-
 interface Grievance {
-  grievanceId: string;
-  status: 'pending' | 'in_progress' | 'completed' | 'rejected';
-  grievanceType: 'calculation_error' | 'reevaluation';
-  filedAt: string;
+  grievanceId: string; status: 'pending' | 'in_progress' | 'completed' | 'rejected';
+  grievanceType: 'calculation_error' | 'reevaluation'; filedAt: string;
 }
-
 interface ReEvaluation {
-  reevaluationId: string;
-  originalTotalMarksObtained: number;
-  newTotalMarksObtained: number;
-  originalPercentage: number;
-  newPercentage: number;
-  totalDifference: number;
+  reevaluationId: string; originalTotalMarksObtained: number; newTotalMarksObtained: number;
+  originalPercentage: number; newPercentage: number; totalDifference: number;
   percentageDifference: number;
-  comparisonData: Array<{
-    questionNumber: number;
-    maxMarks: number;
-    oldMarksObtained: number;
-    newMarksObtained: number;
-    difference: number;
-  }>;
+  comparisonData: Array<{ questionNumber: number; maxMarks: number; oldMarksObtained: number; newMarksObtained: number; difference: number }>;
   newRemarks?: string;
 }
-
 type BlockchainStatus = 'verified' | 'tampered' | 'not_found' | 'error' | 'loading' | 'idle';
-
-interface BlockchainVerification {
-  status: BlockchainStatus;
-  recomputedHash?: string;
-  onChainEvaluationHash?: string;
-  message?: string;
-}
-
-// ── NEW: file hash verification types ──
+interface BlockchainVerification { status: BlockchainStatus; recomputedHash?: string; onChainEvaluationHash?: string; message?: string; }
 type FileHashStatus = 'verified' | 'tampered' | 'not_found' | 'error' | 'loading' | 'idle';
+interface FileHashVerification { status: FileHashStatus; recomputedHash?: string; onChainFileHash?: string; message?: string; }
 
-interface FileHashVerification {
-  status: FileHashStatus;
-  recomputedHash?: string;
-  onChainFileHash?: string;
-  message?: string;
+/* ─── Cursor ─── */
+function DashCursor() {
+  const dotRef  = useRef<HTMLDivElement>(null);
+  const ringRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    let dx = window.innerWidth / 2, dy = window.innerHeight / 2;
+    let rx = dx, ry = dy;
+    let raf: number;
+    const onMove = (e: MouseEvent) => { dx = e.clientX; dy = e.clientY; };
+    window.addEventListener('mousemove', onMove);
+    const loop = () => {
+      if (dotRef.current)  { dotRef.current.style.left = dx + 'px'; dotRef.current.style.top = dy + 'px'; }
+      rx += (dx - rx) * 0.11; ry += (dy - ry) * 0.11;
+      if (ringRef.current) { ringRef.current.style.left = rx + 'px'; ringRef.current.style.top = ry + 'px'; }
+      raf = requestAnimationFrame(loop);
+    };
+    loop();
+    return () => { window.removeEventListener('mousemove', onMove); cancelAnimationFrame(raf); };
+  }, []);
+  return (
+    <>
+      <div ref={dotRef}  className="c-dot" />
+      <div ref={ringRef} className="c-ring" />
+    </>
+  );
 }
-// ───────────────────────────────────────
 
+/* ─── Grade helper ─── */
+function getGrade(pct: number) {
+  if (pct >= 90) return { label: 'A+', color: 'rgba(74,222,128,1)',  bg: 'rgba(34,197,94,0.15)',  border: 'rgba(34,197,94,0.3)'   };
+  if (pct >= 80) return { label: 'A',  color: 'rgba(74,222,128,1)',  bg: 'rgba(34,197,94,0.12)',  border: 'rgba(34,197,94,0.25)'  };
+  if (pct >= 70) return { label: 'B+', color: 'rgba(147,197,253,1)', bg: 'rgba(59,130,246,0.12)', border: 'rgba(59,130,246,0.25)' };
+  if (pct >= 60) return { label: 'B',  color: 'rgba(147,197,253,1)', bg: 'rgba(59,130,246,0.1)',  border: 'rgba(59,130,246,0.2)'  };
+  if (pct >= 50) return { label: 'C',  color: 'rgba(253,224,71,1)',  bg: 'rgba(251,191,36,0.12)', border: 'rgba(251,191,36,0.25)' };
+  if (pct >= 40) return { label: 'D',  color: 'rgba(253,186,116,1)', bg: 'rgba(249,115,22,0.12)', border: 'rgba(249,115,22,0.25)' };
+  return           { label: 'F',  color: 'rgba(252,165,165,1)', bg: 'rgba(239,68,68,0.12)',  border: 'rgba(239,68,68,0.25)'  };
+}
+
+function grievanceBadge(status: string) {
+  const map: Record<string, { text: string; color: string; bg: string; border: string }> = {
+    pending:     { text: 'Pending Review', color: 'rgba(253,224,71,1)',   bg: 'rgba(251,191,36,0.1)',  border: 'rgba(251,191,36,0.3)'  },
+    in_progress: { text: 'In Progress',    color: 'rgba(147,197,253,1)', bg: 'rgba(59,130,246,0.1)',  border: 'rgba(59,130,246,0.3)'  },
+    completed:   { text: 'Completed',      color: 'rgba(74,222,128,1)',  bg: 'rgba(34,197,94,0.1)',   border: 'rgba(34,197,94,0.3)'   },
+    rejected:    { text: 'Rejected',       color: 'rgba(252,165,165,1)', bg: 'rgba(239,68,68,0.1)',   border: 'rgba(239,68,68,0.3)'   },
+  };
+  return map[status] || map.pending;
+}
+
+/* ─── Blockchain Verify Button (with hover tooltip via React state) ─── */
+function BlockchainVerifyButton({
+  verification, onVerify,
+}: { verification: BlockchainVerification; onVerify: () => void }) {
+  const { status, recomputedHash, onChainEvaluationHash, message } = verification;
+  const [tooltipVisible, setTooltipVisible] = useState(false);
+
+  if (status === 'idle') return (
+    <button onClick={onVerify} style={{
+      display: 'flex', alignItems: 'center', gap: '0.45rem',
+      padding: '0.45rem 0.9rem', borderRadius: 9,
+      background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)',
+      fontSize: '0.78rem', fontWeight: 700, color: 'rgba(255,255,255,0.7)',
+      cursor: 'none', fontFamily: 'inherit', transition: 'background 0.2s',
+    }}
+      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.1)')}
+      onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
+    >
+      🔗 Verify on Blockchain
+    </button>
+  );
+
+  if (status === 'loading') return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.45rem 0.9rem', borderRadius: 9, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', fontSize: '0.78rem', fontWeight: 700, color: 'rgba(255,255,255,0.5)' }}>
+      <div style={{ width: 12, height: 12, borderRadius: '50%', border: '1.5px solid rgba(255,255,255,0.15)', borderTop: '1.5px solid rgba(255,255,255,0.6)', animation: 'spin 0.7s linear infinite' }} />
+      Verifying…
+    </div>
+  );
+
+  if (status === 'verified') return (
+    <div
+      style={{ position: 'relative' }}
+      onMouseEnter={() => setTooltipVisible(true)}
+      onMouseLeave={() => setTooltipVisible(false)}
+    >
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: '0.45rem',
+        padding: '0.45rem 0.9rem', borderRadius: 9,
+        background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.35)',
+        fontSize: '0.78rem', fontWeight: 700, color: 'rgba(74,222,128,1)',
+        cursor: 'none',
+      }}>
+        ✅ Verified on Blockchain
+      </div>
+      {tooltipVisible && (
+        <div style={{
+          position: 'absolute', right: 0, top: 'calc(100% + 8px)', zIndex: 200,
+          background: '#111', border: '1px solid rgba(255,255,255,0.1)',
+          borderRadius: 12, padding: '1rem', width: 340,
+          boxShadow: '0 12px 40px rgba(0,0,0,0.7)',
+        }}>
+          <p style={{ fontSize: '0.78rem', fontWeight: 800, color: 'rgba(74,222,128,1)', marginBottom: '0.75rem' }}>
+            ✅ Hashes Match — Evaluation Untampered
+          </p>
+          <div style={{ marginBottom: '0.6rem' }}>
+            <p style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.3)', marginBottom: '0.25rem' }}>
+              Recomputed Hash
+            </p>
+            <p style={{ fontSize: '0.7rem', fontFamily: 'monospace', color: 'rgba(74,222,128,0.85)', wordBreak: 'break-all', lineHeight: 1.5 }}>
+              {recomputedHash}
+            </p>
+          </div>
+          <div>
+            <p style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.3)', marginBottom: '0.25rem' }}>
+              On-Chain Hash
+            </p>
+            <p style={{ fontSize: '0.7rem', fontFamily: 'monospace', color: 'rgba(74,222,128,0.85)', wordBreak: 'break-all', lineHeight: 1.5 }}>
+              {onChainEvaluationHash}
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  if (status === 'tampered') return (
+    <div
+      style={{ position: 'relative' }}
+      onMouseEnter={() => setTooltipVisible(true)}
+      onMouseLeave={() => setTooltipVisible(false)}
+    >
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: '0.45rem',
+        padding: '0.45rem 0.9rem', borderRadius: 9,
+        background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.4)',
+        fontSize: '0.78rem', fontWeight: 700, color: 'rgba(252,165,165,1)',
+        animation: 'pulse 1.5s ease infinite', cursor: 'none',
+      }}>
+        ⚠️ Tampered!
+      </div>
+      {tooltipVisible && (
+        <div style={{
+          position: 'absolute', right: 0, top: 'calc(100% + 8px)', zIndex: 200,
+          background: '#111', border: '1px solid rgba(239,68,68,0.25)',
+          borderRadius: 12, padding: '1rem', width: 340,
+          boxShadow: '0 12px 40px rgba(0,0,0,0.7)',
+        }}>
+          <p style={{ fontSize: '0.78rem', fontWeight: 800, color: 'rgba(252,165,165,1)', marginBottom: '0.75rem' }}>
+            ⚠️ Hash Mismatch — Evaluation May Be Tampered
+          </p>
+          <div style={{ marginBottom: '0.6rem' }}>
+            <p style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.3)', marginBottom: '0.25rem' }}>
+              Recomputed from DB
+            </p>
+            <p style={{ fontSize: '0.7rem', fontFamily: 'monospace', color: 'rgba(253,224,71,0.9)', wordBreak: 'break-all', lineHeight: 1.5 }}>
+              {recomputedHash}
+            </p>
+          </div>
+          <div>
+            <p style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.3)', marginBottom: '0.25rem' }}>
+              On-Chain Stored
+            </p>
+            <p style={{ fontSize: '0.7rem', fontFamily: 'monospace', color: 'rgba(252,165,165,0.9)', wordBreak: 'break-all', lineHeight: 1.5 }}>
+              {onChainEvaluationHash}
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  if (status === 'not_found') return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', padding: '0.45rem 0.9rem', borderRadius: 9, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', fontSize: '0.78rem', fontWeight: 700, color: 'rgba(255,255,255,0.4)' }}>
+      📋 Not on Blockchain
+    </div>
+  );
+
+  return (
+    <div title={message} style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', padding: '0.45rem 0.9rem', borderRadius: 9, background: 'rgba(249,115,22,0.1)', border: '1px solid rgba(249,115,22,0.3)', fontSize: '0.78rem', fontWeight: 700, color: 'rgba(253,186,116,1)' }}>
+      ❌ Verify Failed
+    </div>
+  );
+}
+
+/* ─── File Hash Verify Button ─── */
+function FileHashVerifyButton({
+  verification, onVerify,
+}: { verification: FileHashVerification; onVerify: () => void }) {
+  const { status, recomputedHash, onChainFileHash, message } = verification;
+  const [tooltipVisible, setTooltipVisible] = useState(false);
+
+  if (status === 'idle') return (
+    <button onClick={onVerify} style={{
+      width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.45rem',
+      padding: '0.75rem', borderRadius: 10,
+      background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)',
+      fontSize: '0.85rem', fontWeight: 700, color: 'rgba(255,255,255,0.7)',
+      cursor: 'none', fontFamily: 'inherit', transition: 'background 0.2s',
+    }}
+      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.09)')}
+      onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
+    >
+      🔒 Verify File Integrity
+    </button>
+  );
+
+  if (status === 'loading') return (
+    <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.75rem', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', fontSize: '0.85rem', fontWeight: 700, color: 'rgba(255,255,255,0.4)' }}>
+      <div style={{ width: 14, height: 14, borderRadius: '50%', border: '1.5px solid rgba(255,255,255,0.1)', borderTop: '1.5px solid rgba(255,255,255,0.5)', animation: 'spin 0.7s linear infinite' }} />
+      Verifying File…
+    </div>
+  );
+
+  if (status === 'verified') return (
+    <div
+      style={{ position: 'relative', width: '100%' }}
+      onMouseEnter={() => setTooltipVisible(true)}
+      onMouseLeave={() => setTooltipVisible(false)}
+    >
+      <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.75rem', borderRadius: 10, background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', fontSize: '0.85rem', fontWeight: 700, color: 'rgba(74,222,128,1)', cursor: 'none' }}>
+        ✅ File Integrity Verified
+      </div>
+      {tooltipVisible && (
+        <div style={{
+          position: 'absolute', left: 0, bottom: 'calc(100% + 8px)', zIndex: 200,
+          background: '#111', border: '1px solid rgba(255,255,255,0.1)',
+          borderRadius: 12, padding: '1rem', width: '100%',
+          boxShadow: '0 12px 40px rgba(0,0,0,0.7)',
+        }}>
+          <p style={{ fontSize: '0.78rem', fontWeight: 800, color: 'rgba(74,222,128,1)', marginBottom: '0.75rem' }}>
+            ✅ File Hashes Match — Untampered
+          </p>
+          <div style={{ marginBottom: '0.6rem' }}>
+            <p style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.3)', marginBottom: '0.25rem' }}>Recomputed Hash</p>
+            <p style={{ fontSize: '0.7rem', fontFamily: 'monospace', color: 'rgba(74,222,128,0.85)', wordBreak: 'break-all', lineHeight: 1.5 }}>{recomputedHash}</p>
+          </div>
+          <div>
+            <p style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.3)', marginBottom: '0.25rem' }}>On-Chain Hash</p>
+            <p style={{ fontSize: '0.7rem', fontFamily: 'monospace', color: 'rgba(74,222,128,0.85)', wordBreak: 'break-all', lineHeight: 1.5 }}>{onChainFileHash}</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  if (status === 'tampered') return (
+    <div
+      style={{ position: 'relative', width: '100%' }}
+      onMouseEnter={() => setTooltipVisible(true)}
+      onMouseLeave={() => setTooltipVisible(false)}
+    >
+      <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.75rem', borderRadius: 10, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', fontSize: '0.85rem', fontWeight: 700, color: 'rgba(252,165,165,1)', animation: 'pulse 1.5s ease infinite', cursor: 'none' }}>
+        ⚠️ File Has Been Tampered!
+      </div>
+      {tooltipVisible && (
+        <div style={{
+          position: 'absolute', left: 0, bottom: 'calc(100% + 8px)', zIndex: 200,
+          background: '#111', border: '1px solid rgba(239,68,68,0.25)',
+          borderRadius: 12, padding: '1rem', width: '100%',
+          boxShadow: '0 12px 40px rgba(0,0,0,0.7)',
+        }}>
+          <p style={{ fontSize: '0.78rem', fontWeight: 800, color: 'rgba(252,165,165,1)', marginBottom: '0.75rem' }}>
+            ⚠️ File Hash Mismatch — File May Be Tampered
+          </p>
+          <div style={{ marginBottom: '0.6rem' }}>
+            <p style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.3)', marginBottom: '0.25rem' }}>Recomputed from File</p>
+            <p style={{ fontSize: '0.7rem', fontFamily: 'monospace', color: 'rgba(253,224,71,0.9)', wordBreak: 'break-all', lineHeight: 1.5 }}>{recomputedHash}</p>
+          </div>
+          <div>
+            <p style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.3)', marginBottom: '0.25rem' }}>On-Chain Stored</p>
+            <p style={{ fontSize: '0.7rem', fontFamily: 'monospace', color: 'rgba(252,165,165,0.9)', wordBreak: 'break-all', lineHeight: 1.5 }}>{onChainFileHash}</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  if (status === 'not_found') return (
+    <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.75rem', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', fontSize: '0.85rem', fontWeight: 700, color: 'rgba(255,255,255,0.35)' }}>
+      📋 File Not on Blockchain
+    </div>
+  );
+
+  return (
+    <div title={message} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.75rem', borderRadius: 10, background: 'rgba(249,115,22,0.09)', border: '1px solid rgba(249,115,22,0.25)', fontSize: '0.85rem', fontWeight: 700, color: 'rgba(253,186,116,1)' }}>
+      ❌ File Verification Failed
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════
+   MAIN PAGE
+══════════════════════════════════════════════════════════════ */
 export default function ResultsPage() {
-  const router = useRouter();
+  const router       = useRouter();
   const searchParams = useSearchParams();
   const submissionIdParam = searchParams.get('submissionId');
 
-  const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [submissions, setSubmissions]               = useState<Submission[]>([]);
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
-  const [evaluation, setEvaluation] = useState<Evaluation | null>(null);
-  const [grievance, setGrievance] = useState<Grievance | null>(null);
-  const [reevaluation, setReEvaluation] = useState<ReEvaluation | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadingEvaluation, setLoadingEvaluation] = useState(false);
-  const [error, setError] = useState('');
+  const [evaluation, setEvaluation]                 = useState<Evaluation | null>(null);
+  const [grievance, setGrievance]                   = useState<Grievance | null>(null);
+  const [reevaluation, setReEvaluation]             = useState<ReEvaluation | null>(null);
+  const [loading, setLoading]                       = useState(true);
+  const [loadingEvaluation, setLoadingEvaluation]   = useState(false);
+  const [error, setError]                           = useState('');
+  const [blockchainVerification, setBlockchainVerification] = useState<BlockchainVerification>({ status: 'idle' });
+  const [fileHashVerification, setFileHashVerification]     = useState<FileHashVerification>({ status: 'idle' });
 
-  const [blockchainVerification, setBlockchainVerification] =
-    useState<BlockchainVerification>({ status: 'idle' });
-
-  // ── NEW: file hash state ──
-  const [fileHashVerification, setFileHashVerification] =
-    useState<FileHashVerification>({ status: 'idle' });
-  // ─────────────────────────
-
-  useEffect(() => {
-    fetchSubmissions();
-  }, []);
+  useEffect(() => { fetchSubmissions(); }, []);
 
   useEffect(() => {
     if (submissionIdParam && submissions.length > 0) {
-      const submission = submissions.find(
-        (s) => s.submissionId === submissionIdParam
-      );
-      if (
-        submission &&
-        (submission.status === 'evaluated' || submission.status === 'published')
-      ) {
-        handleViewResult(submission);
-      }
+      const sub = submissions.find(s => s.submissionId === submissionIdParam);
+      if (sub && (sub.status === 'evaluated' || sub.status === 'published')) handleViewResult(sub);
     }
   }, [submissionIdParam, submissions]);
 
   const fetchSubmissions = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/student/submissions');
-      if (!response.ok) {
-        if (response.status === 401) {
-          router.push('/login');
-          return;
-        }
-        throw new Error('Failed to fetch submissions');
-      }
-      const data = await response.json();
-      const evaluatedSubmissions = data.data.submissions.filter(
-        (s: Submission) =>
-          s.status === 'evaluated' || s.status === 'published'
-      );
-      setSubmissions(evaluatedSubmissions);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load results');
-    } finally {
-      setLoading(false);
-    }
+      const res = await fetch('/api/student/submissions');
+      if (!res.ok) { if (res.status === 401) { router.push('/login'); return; } throw new Error('Failed to fetch submissions'); }
+      const data = await res.json();
+      setSubmissions(data.data.submissions.filter((s: Submission) => s.status === 'evaluated' || s.status === 'published'));
+    } catch (err: any) { setError(err.message || 'Failed to load results'); }
+    finally { setLoading(false); }
   };
 
   const handleViewResult = async (submission: Submission) => {
     try {
       setLoadingEvaluation(true);
       setSelectedSubmission(submission);
-      setError('');
-      setGrievance(null);
-      setReEvaluation(null);
+      setError(''); setGrievance(null); setReEvaluation(null);
       setBlockchainVerification({ status: 'idle' });
-      // ── NEW: reset file hash on every new submission select ──
       setFileHashVerification({ status: 'idle' });
-      // ─────────────────────────────────────────────────────────
 
-      const response = await fetch(
-        `/api/student/results?submissionId=${submission.submissionId}`
-      );
-      if (!response.ok) throw new Error('Failed to fetch evaluation');
-      const data = await response.json();
+      const res = await fetch(`/api/student/results?submissionId=${submission.submissionId}`);
+      if (!res.ok) throw new Error('Failed to fetch evaluation');
+      const data = await res.json();
       setEvaluation(data.data.evaluation);
 
-      const grievanceResponse = await fetch(
-        `/api/student/grievance?submissionId=${submission.submissionId}`
-      );
-      if (grievanceResponse.ok) {
-        const grievanceData = await grievanceResponse.json();
-        if (grievanceData.data.grievance) {
-          setGrievance(grievanceData.data.grievance);
-          if (
-            grievanceData.data.grievance.status === 'completed' &&
-            grievanceData.data.grievance.reevaluationId
-          ) {
-            const reevalResponse = await fetch(
-              `/api/student/reevaluation?submissionId=${submission.submissionId}`
-            );
-            if (reevalResponse.ok) {
-              const reevalData = await reevalResponse.json();
-              setReEvaluation(reevalData.data.reevaluation);
-            }
+      const gRes = await fetch(`/api/student/grievance?submissionId=${submission.submissionId}`);
+      if (gRes.ok) {
+        const gData = await gRes.json();
+        if (gData.data.grievance) {
+          setGrievance(gData.data.grievance);
+          if (gData.data.grievance.status === 'completed' && gData.data.grievance.reevaluationId) {
+            const rRes = await fetch(`/api/student/reevaluation?submissionId=${submission.submissionId}`);
+            if (rRes.ok) { const rData = await rRes.json(); setReEvaluation(rData.data.reevaluation); }
           }
         }
       }
-    } catch (err: any) {
-      setError(err.message || 'Failed to load evaluation details');
-      setEvaluation(null);
-    } finally {
-      setLoadingEvaluation(false);
-    }
+    } catch (err: any) { setError(err.message || 'Failed to load evaluation details'); setEvaluation(null); }
+    finally { setLoadingEvaluation(false); }
   };
 
   const handleVerifyBlockchain = async () => {
     if (!selectedSubmission) return;
     setBlockchainVerification({ status: 'loading' });
     try {
-      const res = await fetch(
-        `/api/student/verify-blockchain?submissionId=${selectedSubmission.submissionId}`
-      );
+      const res  = await fetch(`/api/student/verify-blockchain?submissionId=${selectedSubmission.submissionId}`);
       const data = await res.json();
       setBlockchainVerification({
         status:                data.status,
@@ -202,600 +397,420 @@ export default function ResultsPage() {
         onChainEvaluationHash: data.onChainEvaluationHash,
         message:               data.message,
       });
-    } catch (err: any) {
-      setBlockchainVerification({
-        status:  'error',
-        message: err.message || 'Verification failed',
-      });
-    }
+    } catch (err: any) { setBlockchainVerification({ status: 'error', message: err.message || 'Verification failed' }); }
   };
 
-  // ── NEW: fetch answer sheet as blob → POST to verify-file ──
   const handleVerifyFileHash = async () => {
     if (!selectedSubmission) return;
     setFileHashVerification({ status: 'loading' });
     try {
-      // 1) Download the answer sheet from its URL
       const fileRes = await fetch(selectedSubmission.answerSheetUrl);
       if (!fileRes.ok) throw new Error('Could not fetch answer sheet file');
       const blob = await fileRes.blob();
-
-      // 2) Send as FormData to the verify-file API
       const formData = new FormData();
       formData.append('submissionId', selectedSubmission.submissionId);
       formData.append('file', blob, 'answersheet');
-
-      const res = await fetch('/api/student/verify-file', {
-        method: 'POST',
-        body:   formData,
-      });
+      const res  = await fetch('/api/student/verify-file', { method: 'POST', body: formData });
       const data = await res.json();
-
       setFileHashVerification({
-        status:         data.status,
-        recomputedHash: data.recomputedHash,
+        status:          data.status,
+        recomputedHash:  data.recomputedHash,
         onChainFileHash: data.onChainFileHash,
-        message:        data.message,
+        message:         data.message,
       });
-    } catch (err: any) {
-      setFileHashVerification({
-        status:  'error',
-        message: err.message || 'File verification failed',
-      });
-    }
-  };
-  // ───────────────────────────────────────────────────────────
-
-  const BlockchainBadge = () => {
-    const { status, recomputedHash, onChainEvaluationHash, message } =
-      blockchainVerification;
-
-    if (status === 'idle') {
-      return (
-        <button
-          onClick={handleVerifyBlockchain}
-          className="flex items-center gap-2 bg-white/20 hover:bg-white/30 
-                     text-white px-3 py-1.5 rounded-full text-sm font-semibold 
-                     transition-all border border-white/40"
-        >
-          🔗 Verify on Blockchain
-        </button>
-      );
-    }
-
-    if (status === 'loading') {
-      return (
-        <div className="flex items-center gap-2 bg-white/20 text-white 
-                        px-3 py-1.5 rounded-full text-sm font-semibold border border-white/40">
-          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white" />
-          Verifying...
-        </div>
-      );
-    }
-
-    if (status === 'verified') {
-      return (
-        <div className="group relative">
-          <div className="flex items-center gap-2 bg-green-500 text-white 
-                          px-3 py-1.5 rounded-full text-sm font-semibold 
-                          shadow-lg cursor-pointer">
-            ✅ Verified on Blockchain
-          </div>
-          <div className="absolute right-0 top-10 z-50 hidden group-hover:block 
-                          bg-gray-900 text-white text-xs rounded-lg p-3 w-80 shadow-xl">
-            <p className="font-bold text-green-400 mb-2">✅ Hashes Match</p>
-            <p className="text-gray-400 mb-1">Recomputed:</p>
-            <p className="font-mono break-all text-green-300 mb-2">{recomputedHash}</p>
-            <p className="text-gray-400 mb-1">On-chain:</p>
-            <p className="font-mono break-all text-green-300">{onChainEvaluationHash}</p>
-          </div>
-        </div>
-      );
-    }
-
-    if (status === 'tampered') {
-      return (
-        <div className="group relative">
-          <div className="flex items-center gap-2 bg-red-500 text-white 
-                          px-3 py-1.5 rounded-full text-sm font-semibold 
-                          shadow-lg cursor-pointer animate-pulse">
-            ⚠️ Tampered!
-          </div>
-          <div className="absolute right-0 top-10 z-50 hidden group-hover:block 
-                          bg-gray-900 text-white text-xs rounded-lg p-3 w-80 shadow-xl">
-            <p className="font-bold text-red-400 mb-2">⚠️ Hash Mismatch Detected</p>
-            <p className="text-gray-400 mb-1">Recomputed from DB:</p>
-            <p className="font-mono break-all text-yellow-300 mb-2">{recomputedHash}</p>
-            <p className="text-gray-400 mb-1">On-chain stored:</p>
-            <p className="font-mono break-all text-red-400">{onChainEvaluationHash}</p>
-          </div>
-        </div>
-      );
-    }
-
-    if (status === 'not_found') {
-      return (
-        <div className="flex items-center gap-2 bg-gray-400 text-white 
-                        px-3 py-1.5 rounded-full text-sm font-semibold">
-          📋 Not on Blockchain
-        </div>
-      );
-    }
-
-    return (
-      <div className="flex items-center gap-2 bg-orange-500 text-white 
-                      px-3 py-1.5 rounded-full text-sm font-semibold"
-           title={message}>
-        ❌ Verify Failed
-      </div>
-    );
+    } catch (err: any) { setFileHashVerification({ status: 'error', message: err.message || 'File verification failed' }); }
   };
 
-  // ── NEW: File Hash Badge ──────────────────────────────────
-  const FileHashBadge = () => {
-    const { status, recomputedHash, onChainFileHash, message } =
-      fileHashVerification;
-
-    if (status === 'idle') {
-      return (
-        <button
-          onClick={handleVerifyFileHash}
-          className="btn btn-outline flex items-center justify-center gap-2 w-full"
-        >
-          🔒 Verify File Integrity
-        </button>
-      );
-    }
-
-    if (status === 'loading') {
-      return (
-        <button disabled
-          className="btn btn-outline flex items-center justify-center gap-2 w-full opacity-70"
-        >
-          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current" />
-          Verifying File...
-        </button>
-      );
-    }
-
-    if (status === 'verified') {
-      return (
-        <div className="group relative w-full">
-          <div className="flex items-center justify-center gap-2 w-full
-                          bg-green-100 text-green-800 border border-green-300
-                          px-4 py-2 rounded-lg text-sm font-semibold cursor-pointer">
-            ✅ File Integrity Verified
-          </div>
-          {/* Hover tooltip */}
-          <div className="absolute left-0 bottom-12 z-50 hidden group-hover:block
-                          bg-gray-900 text-white text-xs rounded-lg p-3 w-full shadow-xl">
-            <p className="font-bold text-green-400 mb-2">✅ File Hashes Match</p>
-            <p className="text-gray-400 mb-1">Recomputed:</p>
-            <p className="font-mono break-all text-green-300 mb-2">{recomputedHash}</p>
-            <p className="text-gray-400 mb-1">On-chain:</p>
-            <p className="font-mono break-all text-green-300">{onChainFileHash}</p>
-          </div>
-        </div>
-      );
-    }
-
-    if (status === 'tampered') {
-      return (
-        <div className="group relative w-full">
-          <div className="flex items-center justify-center gap-2 w-full
-                          bg-red-100 text-red-800 border border-red-300
-                          px-4 py-2 rounded-lg text-sm font-semibold cursor-pointer animate-pulse">
-            ⚠️ File Has Been Tampered!
-          </div>
-          {/* Hover tooltip */}
-          <div className="absolute left-0 bottom-12 z-50 hidden group-hover:block
-                          bg-gray-900 text-white text-xs rounded-lg p-3 w-full shadow-xl">
-            <p className="font-bold text-red-400 mb-2">⚠️ File Hash Mismatch</p>
-            <p className="text-gray-400 mb-1">Recomputed from file:</p>
-            <p className="font-mono break-all text-yellow-300 mb-2">{recomputedHash}</p>
-            <p className="text-gray-400 mb-1">On-chain stored:</p>
-            <p className="font-mono break-all text-red-400">{onChainFileHash}</p>
-          </div>
-        </div>
-      );
-    }
-
-    if (status === 'not_found') {
-      return (
-        <div className="flex items-center justify-center gap-2 w-full
-                        bg-gray-100 text-gray-600 border border-gray-300
-                        px-4 py-2 rounded-lg text-sm font-semibold">
-          📋 File Not on Blockchain
-        </div>
-      );
-    }
-
-    // error
-    return (
-      <div className="flex items-center justify-center gap-2 w-full
-                      bg-orange-100 text-orange-800 border border-orange-300
-                      px-4 py-2 rounded-lg text-sm font-semibold"
-           title={message}>
-        ❌ File Verification Failed
-      </div>
-    );
-  };
-  // ─────────────────────────────────────────────────────────
-
-  const getGrade = (percentage: number) => {
-    if (percentage >= 90) return { grade: 'A+', color: 'text-success-600' };
-    if (percentage >= 80) return { grade: 'A',  color: 'text-success-600' };
-    if (percentage >= 70) return { grade: 'B+', color: 'text-success-500' };
-    if (percentage >= 60) return { grade: 'B',  color: 'text-primary-600' };
-    if (percentage >= 50) return { grade: 'C',  color: 'text-warning-600' };
-    if (percentage >= 40) return { grade: 'D',  color: 'text-warning-700' };
-    return { grade: 'F', color: 'text-danger-600' };
-  };
-
-  const getGrievanceStatusBadge = (status: string) => {
-    const badges = {
-      pending:     { text: 'Pending Review', class: 'bg-warning-100 text-warning-800' },
-      in_progress: { text: 'In Progress',    class: 'bg-primary-100 text-primary-800' },
-      completed:   { text: 'Completed',      class: 'bg-success-100 text-success-800' },
-      rejected:    { text: 'Rejected',       class: 'bg-danger-100 text-danger-800'   },
-    };
-    return badges[status as keyof typeof badges] || badges.pending;
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto" />
-          <p className="mt-4 text-secondary-600">Loading results...</p>
+  /* ── Loading screen ── */
+  if (loading) return (
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Bebas+Neue&display=swap');
+        html,body{background:#050505!important;margin:0;font-family:'Inter',sans-serif;cursor:none!important;}
+        @keyframes spin{to{transform:rotate(360deg);}}
+        .c-dot{position:fixed;width:7px;height:7px;background:#fff;border-radius:50%;pointer-events:none;z-index:99999;transform:translate(-50%,-50%);mix-blend-mode:difference;}
+        .c-ring{position:fixed;width:32px;height:32px;border:1px solid rgba(255,255,255,0.6);border-radius:50%;pointer-events:none;z-index:99998;transform:translate(-50%,-50%);mix-blend-mode:difference;}
+      `}</style>
+      <DashCursor />
+      <div style={{ minHeight: '100vh', background: '#050505', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ width: 36, height: 36, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.07)', borderTop: '2px solid rgba(255,255,255,0.5)', animation: 'spin 0.7s linear infinite', margin: '0 auto' }} />
+          <p style={{ marginTop: '1rem', fontSize: '0.88rem', fontWeight: 500, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.06em' }}>Loading results…</p>
         </div>
       </div>
-    );
-  }
+    </>
+  );
 
   return (
-    <div className="min-h-screen bg-secondary-50">
-      {/* Nav */}
-      <nav className="bg-white shadow-sm border-b border-secondary-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <Link href="/dashboard" className="text-secondary-600 hover:text-secondary-900">
-              ← Back to Dashboard
-            </Link>
-            <h1 className="text-xl font-bold text-primary-600">My Results</h1>
-            <div className="w-32" />
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Bebas+Neue&display=swap');
+        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+        html{background:#050505!important;color-scheme:dark;}
+        body{background:#050505!important;color:#f0f0f0;font-family:'Inter',system-ui,sans-serif;overflow-x:hidden;cursor:none!important;}
+
+        .c-dot{position:fixed;width:7px;height:7px;background:#fff;border-radius:50%;pointer-events:none;z-index:99999;transform:translate(-50%,-50%);mix-blend-mode:difference;}
+        .c-ring{position:fixed;width:32px;height:32px;border:1px solid rgba(255,255,255,0.6);border-radius:50%;pointer-events:none;z-index:99998;transform:translate(-50%,-50%);mix-blend-mode:difference;}
+
+        @keyframes spin   { to{transform:rotate(360deg);} }
+        @keyframes fadeUp { from{opacity:0;transform:translateY(14px);} to{opacity:1;transform:translateY(0);} }
+        @keyframes pulse  { 0%,100%{opacity:1;} 50%{opacity:0.5;} }
+
+        .fade-up { animation: fadeUp 0.45s ease both; }
+
+        .sub-btn {
+          width:100%; text-align:left; position:relative;
+          background:rgba(255,255,255,0.025);
+          border:1px solid rgba(255,255,255,0.08);
+          border-radius:12px; padding:1rem 1.1rem 1rem 1.3rem;
+          cursor:none; display:block;
+          transition:background 0.2s, border-color 0.2s, transform 0.15s;
+          font-family:inherit;
+        }
+        .sub-btn:hover  { background:rgba(255,255,255,0.04); border-color:rgba(255,255,255,0.15); transform:translateY(-1px); }
+        .sub-btn.active { background:rgba(255,255,255,0.06); border-color:rgba(255,255,255,0.28); box-shadow:0 0 0 1px rgba(255,255,255,0.08); }
+
+        .results-scroll::-webkit-scrollbar { width:3px; }
+        .results-scroll::-webkit-scrollbar-track { background:transparent; }
+        .results-scroll::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.1); border-radius:10px; }
+
+        .q-bar-bg   { height:5px; border-radius:100px; background:rgba(255,255,255,0.07); overflow:hidden; margin-top:0.5rem; }
+        .q-bar-fill { height:100%; border-radius:100px; transition:width 0.7s ease; }
+      `}</style>
+
+      <DashCursor />
+
+      <div style={{ minHeight: '100vh', background: '#050505', fontFamily: "'Inter', system-ui, sans-serif" }}>
+
+        {/* ── Nav ── */}
+        <nav style={{
+          height: 52, background: 'rgba(5,5,5,0.9)',
+          borderBottom: '1px solid rgba(255,255,255,0.07)',
+          backdropFilter: 'blur(20px)',
+          display: 'flex', alignItems: 'center', padding: '0 1.75rem',
+          justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50,
+        }}>
+          <Link href="/student-dashboard" style={{
+            display: 'flex', alignItems: 'center', gap: '0.45rem',
+            fontSize: '0.85rem', fontWeight: 600, color: 'rgba(255,255,255,0.45)',
+            textDecoration: 'none', transition: 'color 0.2s',
+          }}
+            onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.85)')}
+            onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.45)')}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+            Dashboard
+          </Link>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.78rem', color: 'rgba(255,255,255,0.28)', fontWeight: 500 }}>
+            EvalChain <span style={{ color: 'rgba(255,255,255,0.18)' }}>/</span>
+            <span style={{ color: 'rgba(255,255,255,0.55)' }}>Results</span>
           </div>
-        </div>
-      </nav>
+          <div style={{ width: 80 }} />
+        </nav>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid md:grid-cols-3 gap-6">
+        {/* ── Body ── */}
+        <div style={{
+          maxWidth: 1200, margin: '0 auto', padding: '2rem 1.25rem 4rem',
+          display: 'grid', gridTemplateColumns: '300px 1fr', gap: '1.25rem', alignItems: 'start',
+        }}>
 
-          {/* Left: Submissions List */}
-          <div className="md:col-span-1">
-            <div className="card">
-              <h2 className="text-lg font-semibold mb-4">Evaluated Submissions</h2>
+          {/* ── LEFT: submissions list ── */}
+          <div className="fade-up" style={{
+            background: '#090909', border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: 16, overflow: 'hidden', position: 'sticky', top: 68,
+          }}>
+            <div style={{ padding: '1.25rem 1.4rem', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+              <div style={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.35)', marginBottom: '0.3rem' }}>
+                Evaluated
+              </div>
+              <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#ffffff' }}>Submissions</div>
+            </div>
+
+            <div style={{ padding: '0.85rem', maxHeight: 'calc(100vh - 200px)', overflowY: 'auto' }} className="results-scroll">
               {submissions.length === 0 ? (
-                <div className="text-center py-8 text-secondary-500">
-                  <div className="text-4xl mb-3">📭</div>
-                  <p>No results available yet</p>
+                <div style={{ textAlign: 'center', padding: '2.5rem 1rem' }}>
+                  <div style={{ fontSize: '2rem', marginBottom: '0.65rem' }}>📭</div>
+                  <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'rgba(255,255,255,0.35)' }}>No results yet</p>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {submissions.map((submission) => (
-                    <button
-                      key={submission._id}
-                      onClick={() => handleViewResult(submission)}
-                      className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
-                        selectedSubmission?._id === submission._id
-                          ? 'border-primary-600 bg-primary-50'
-                          : 'border-secondary-200 hover:border-primary-300'
-                      }`}
-                    >
-                      <p className="font-medium text-secondary-900">{submission.subject}</p>
-                      <p className="text-xs text-secondary-500 mt-1">
-                        {new Date(submission.uploadedAt).toLocaleDateString()}
-                      </p>
-                      <span className="inline-block mt-2 badge badge-success">
-                        {submission.status === 'published' ? 'Published' : 'Evaluated'}
-                      </span>
-                    </button>
-                  ))}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+                  {submissions.map(sub => {
+                    const isActive = selectedSubmission?._id === sub._id;
+                    return (
+                      <button
+                        key={sub._id}
+                        onClick={() => handleViewResult(sub)}
+                        className={`sub-btn${isActive ? ' active' : ''}`}
+                      >
+                        {/* Left accent stripe */}
+                        <div style={{
+                          position: 'absolute', left: 0, top: 0, bottom: 0, width: 3,
+                          background: isActive ? 'rgba(74,222,128,0.8)' : 'transparent',
+                          borderRadius: '12px 0 0 12px', transition: 'background 0.2s',
+                        }} />
+                        <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#ffffff', marginBottom: '0.25rem' }}>
+                          {sub.subject || sub.testId}
+                        </div>
+                        <div style={{ fontSize: '0.74rem', fontWeight: 500, color: 'rgba(255,255,255,0.38)' }}>
+                          {new Date(sub.uploadedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </div>
+                        <div style={{
+                          display: 'inline-block', marginTop: '0.45rem',
+                          padding: '0.18rem 0.6rem', borderRadius: 100,
+                          background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)',
+                          fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.07em',
+                          textTransform: 'uppercase' as const, color: 'rgba(74,222,128,1)',
+                        }}>
+                          {sub.status === 'published' ? 'Published' : 'Evaluated'}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
           </div>
 
-          {/* Right: Evaluation Details */}
-          <div className="md:col-span-2">
+          {/* ── RIGHT: detail panel ── */}
+          <div>
             {!selectedSubmission ? (
-              <div className="card text-center py-12">
-                <div className="text-5xl mb-4">📊</div>
-                <p className="text-secondary-600">Select a submission to view results</p>
+              <div className="fade-up" style={{ background: '#090909', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: '5rem 2rem', textAlign: 'center' }}>
+                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📊</div>
+                <p style={{ fontSize: '0.95rem', fontWeight: 600, color: 'rgba(255,255,255,0.4)' }}>Select a submission to view results</p>
               </div>
-            ) : loadingEvaluation ? (
-              <div className="card text-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto" />
-                <p className="mt-4 text-secondary-600">Loading evaluation...</p>
-              </div>
-            ) : evaluation ? (
-              <div className="space-y-6">
 
-                {/* Grievance Status */}
-                {grievance && (
-                  <div className={`card border-2 ${
-                    grievance.status === 'completed'   ? 'bg-success-50 border-success-200' :
-                    grievance.status === 'in_progress' ? 'bg-primary-50 border-primary-200' :
-                    'bg-warning-50 border-warning-200'
-                  }`}>
-                    <div className="flex items-center justify-between">
+            ) : loadingEvaluation ? (
+              <div className="fade-up" style={{ background: '#090909', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: '5rem 2rem', textAlign: 'center' }}>
+                <div style={{ width: 36, height: 36, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.07)', borderTop: '2px solid rgba(255,255,255,0.5)', animation: 'spin 0.7s linear infinite', margin: '0 auto' }} />
+                <p style={{ marginTop: '1rem', fontSize: '0.88rem', fontWeight: 500, color: 'rgba(255,255,255,0.4)' }}>Loading evaluation…</p>
+              </div>
+
+            ) : evaluation ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+
+                {/* Grievance notice */}
+                {grievance && (() => {
+                  const gb = grievanceBadge(grievance.status);
+                  return (
+                    <div className="fade-up" style={{ background: '#090909', border: `1px solid ${gb.border}`, borderRadius: 14, padding: '1.25rem 1.4rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
                       <div>
-                        <h3 className="font-semibold text-lg mb-1">📝 Grievance Filed</h3>
-                        <p className="text-sm text-secondary-600">
-                          Type: {grievance.grievanceType === 'calculation_error'
-                            ? 'Calculation Error' : 'Re-evaluation'}
-                        </p>
-                        <p className="text-xs text-secondary-500 mt-1">
-                          Filed on {new Date(grievance.filedAt).toLocaleDateString()}
-                        </p>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem' }}>
+                          <span style={{ fontSize: '1rem' }}>📝</span>
+                          <span style={{ fontSize: '0.95rem', fontWeight: 800, color: '#ffffff' }}>Grievance Filed</span>
+                        </div>
+                        <div style={{ fontSize: '0.8rem', fontWeight: 500, color: 'rgba(255,255,255,0.45)' }}>
+                          {grievance.grievanceType === 'calculation_error' ? 'Calculation Error' : 'Re-evaluation'}
+                        </div>
+                        <div style={{ fontSize: '0.74rem', fontWeight: 500, color: 'rgba(255,255,255,0.28)', marginTop: '0.2rem' }}>
+                          Filed {new Date(grievance.filedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </div>
                       </div>
-                      <span className={`px-3 py-1 rounded-full text-sm font-semibold 
-                        ${getGrievanceStatusBadge(grievance.status).class}`}>
-                        {getGrievanceStatusBadge(grievance.status).text}
-                      </span>
+                      <div style={{ padding: '0.35rem 0.9rem', borderRadius: 100, background: gb.bg, border: `1px solid ${gb.border}`, fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase' as const, color: gb.color, flexShrink: 0 }}>
+                        {gb.text}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* Re-evaluation */}
                 {reevaluation && (
-                  <div className="card bg-gradient-to-br from-purple-50 to-primary-50 
-                                  border-2 border-purple-300">
-                    <h3 className="text-lg font-semibold mb-4 text-purple-900">
+                  <div className="fade-up" style={{ background: '#090909', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 14, padding: '1.4rem', position: 'relative', overflow: 'hidden' }}>
+                    <div style={{ position: 'absolute', top: -30, right: -30, width: 100, height: 100, borderRadius: '50%', background: 'rgba(167,139,250,0.1)', filter: 'blur(30px)', pointerEvents: 'none' }} />
+                    <div style={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: 'rgba(216,180,254,0.85)', marginBottom: '1rem' }}>
                       🔄 Re-evaluation Results
-                    </h3>
-                    <div className="grid grid-cols-3 gap-4 mb-4">
-                      <div className="text-center p-3 bg-white rounded-lg">
-                        <p className="text-xs text-secondary-600 mb-1">Original</p>
-                        <p className="text-xl font-bold text-secondary-900">
-                          {reevaluation.originalTotalMarksObtained}
-                        </p>
-                        <p className="text-sm text-secondary-600">
-                          {reevaluation.originalPercentage.toFixed(1)}%
-                        </p>
-                      </div>
-                      <div className="text-center p-3 bg-white rounded-lg">
-                        <p className="text-xs text-secondary-600 mb-1">New</p>
-                        <p className="text-xl font-bold text-purple-700">
-                          {reevaluation.newTotalMarksObtained}
-                        </p>
-                        <p className="text-sm text-purple-600">
-                          {reevaluation.newPercentage.toFixed(1)}%
-                        </p>
-                      </div>
-                      <div className="text-center p-3 bg-white rounded-lg">
-                        <p className="text-xs text-secondary-600 mb-1">Difference</p>
-                        <p className={`text-xl font-bold ${
-                          reevaluation.totalDifference > 0 ? 'text-success-600' :
-                          reevaluation.totalDifference < 0 ? 'text-danger-600' :
-                          'text-secondary-600'
-                        }`}>
-                          {reevaluation.totalDifference > 0 ? '+' : ''}
-                          {reevaluation.totalDifference}
-                        </p>
-                        <p className={`text-sm ${
-                          reevaluation.percentageDifference > 0 ? 'text-success-600' :
-                          reevaluation.percentageDifference < 0 ? 'text-danger-600' :
-                          'text-secondary-600'
-                        }`}>
-                          {reevaluation.percentageDifference > 0 ? '+' : ''}
-                          {reevaluation.percentageDifference.toFixed(2)}%
-                        </p>
-                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <h4 className="font-semibold text-sm text-purple-900">
-                        Question-wise Changes:
-                      </h4>
-                      {reevaluation.comparisonData.map(
-                        (comp) =>
-                          comp.difference !== 0 && (
-                            <div
-                              key={comp.questionNumber}
-                              className="flex justify-between items-center p-2 bg-white rounded"
-                            >
-                              <span className="text-sm font-medium">
-                                Q{comp.questionNumber}
-                              </span>
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm text-secondary-600">
-                                  {comp.oldMarksObtained} → {comp.newMarksObtained}
-                                </span>
-                                <span className={`text-sm font-bold ${
-                                  comp.difference > 0 ? 'text-success-600' : 'text-danger-600'
-                                }`}>
-                                  ({comp.difference > 0 ? '+' : ''}{comp.difference})
-                                </span>
-                              </div>
-                            </div>
-                          )
-                      )}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '0.75rem', marginBottom: '1.1rem' }}>
+                      {[
+                        { label: 'Original',   val: reevaluation.originalTotalMarksObtained, pct: reevaluation.originalPercentage,  color: 'rgba(255,255,255,0.5)', prefix: '' },
+                        { label: 'New',        val: reevaluation.newTotalMarksObtained,      pct: reevaluation.newPercentage,        color: 'rgba(216,180,254,1)',   prefix: '' },
+                        { label: 'Difference', val: reevaluation.totalDifference,            pct: reevaluation.percentageDifference,
+                          color: reevaluation.totalDifference > 0 ? 'rgba(74,222,128,1)' : reevaluation.totalDifference < 0 ? 'rgba(252,165,165,1)' : 'rgba(255,255,255,0.4)',
+                          prefix: reevaluation.totalDifference > 0 ? '+' : '',
+                        },
+                      ].map(col => (
+                        <div key={col.label} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: '0.85rem', textAlign: 'center' }}>
+                          <div style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.3)', marginBottom: '0.45rem' }}>{col.label}</div>
+                          <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '2rem', lineHeight: 1, color: col.color }}>{col.prefix}{col.val}</div>
+                          <div style={{ fontSize: '0.78rem', fontWeight: 500, color: col.color, opacity: 0.8, marginTop: '0.2rem' }}>{col.prefix}{col.pct.toFixed(1)}%</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.3)', marginBottom: '0.65rem' }}>
+                      Question-wise Changes
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+                      {reevaluation.comparisonData.filter(c => c.difference !== 0).map(comp => (
+                        <div key={comp.questionNumber} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 9, padding: '0.65rem 0.85rem' }}>
+                          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>Q{comp.questionNumber}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <span style={{ fontSize: '0.82rem', fontWeight: 500, color: 'rgba(255,255,255,0.4)' }}>{comp.oldMarksObtained} → {comp.newMarksObtained}</span>
+                            <span style={{ padding: '0.15rem 0.55rem', borderRadius: 100, background: comp.difference > 0 ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)', border: `1px solid ${comp.difference > 0 ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`, fontSize: '0.75rem', fontWeight: 800, color: comp.difference > 0 ? 'rgba(74,222,128,1)' : 'rgba(252,165,165,1)' }}>
+                              {comp.difference > 0 ? '+' : ''}{comp.difference}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
 
-                {/* Score Card */}
-                <div className="card bg-gradient-to-br from-primary-500 to-primary-600 text-white">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold">
-                      {reevaluation ? 'Current Score (After Re-evaluation)' : 'Your Score'}
-                    </h3>
-                    <div className="flex items-center gap-2">
-                      <BlockchainBadge />
-                      {!grievance && !reevaluation && (
-                        <Link
-                          href={`/grievance/${selectedSubmission.submissionId}`}
-                          className="bg-white text-primary-600 px-3 py-1 rounded-full 
-                                     text-sm font-semibold hover:bg-primary-50 transition-colors"
-                        >
-                          📝 File Grievance
-                        </Link>
-                      )}
-                    </div>
-                  </div>
+                {/* Score card */}
+                {(() => {
+                  const displayPct   = reevaluation ? reevaluation.newPercentage        : evaluation.percentage;
+                  const displayMarks = reevaluation ? reevaluation.newTotalMarksObtained : evaluation.totalMarksObtained;
+                  const grade = getGrade(displayPct);
+                  return (
+                    <div className="fade-up" style={{ background: '#090909', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: '1.5rem', position: 'relative', overflow: 'hidden' }}>
+                      <div style={{ position: 'absolute', top: -40, right: -40, width: 130, height: 130, borderRadius: '50%', background: grade.bg, filter: 'blur(40px)', pointerEvents: 'none' }} />
 
-                  <div className="grid grid-cols-3 gap-4 text-center">
-                    <div>
-                      <p className="text-primary-100 text-sm mb-1">Marks Obtained</p>
-                      <p className="text-3xl font-bold">
-                        {reevaluation
-                          ? reevaluation.newTotalMarksObtained
-                          : evaluation.totalMarksObtained}
-                        /{evaluation.totalMarks}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-primary-100 text-sm mb-1">Percentage</p>
-                      <p className="text-3xl font-bold">
-                        {reevaluation
-                          ? reevaluation.newPercentage.toFixed(2)
-                          : evaluation.percentage.toFixed(2)}%
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-primary-100 text-sm mb-1">Grade</p>
-                      <p className="text-3xl font-bold">
-                        {getGrade(
-                          reevaluation
-                            ? reevaluation.newPercentage
-                            : evaluation.percentage
-                        ).grade}
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                      {/* Header row */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.4rem', flexWrap: 'wrap' as const, gap: '0.75rem' }}>
+                        <div style={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.35)' }}>
+                          {reevaluation ? 'Score After Re-evaluation' : 'Your Score'}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' as const }}>
+                          <BlockchainVerifyButton verification={blockchainVerification} onVerify={handleVerifyBlockchain} />
+                          {!grievance && !reevaluation && (
+                            <Link href={`/grievance/${selectedSubmission.submissionId}`} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.45rem 0.9rem', borderRadius: 9, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', fontSize: '0.78rem', fontWeight: 700, color: 'rgba(255,255,255,0.65)', textDecoration: 'none', transition: 'background 0.2s' }}
+                              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.1)')}
+                              onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
+                            >
+                              📝 File Grievance
+                            </Link>
+                          )}
+                        </div>
+                      </div>
 
-                {/* Question-wise Breakdown */}
-                <div className="card">
-                  <h3 className="text-lg font-semibold mb-4">Question-wise Breakdown</h3>
-                  <div className="space-y-3">
-                    {evaluation.questionMarks.map((qm) => {
-                      const reevalQ = reevaluation?.comparisonData.find(
-                        (c) => c.questionNumber === qm.questionNumber
-                      );
-                      const currentMarks = reevalQ ? reevalQ.newMarksObtained : qm.marksObtained;
+                      {/* Stats grid */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '1rem', textAlign: 'center', marginBottom: '1.4rem' }}>
+                        {[
+                          { label: 'Marks Obtained', val: `${displayMarks}/${evaluation.totalMarks}`, color: '#ffffff' },
+                          { label: 'Percentage',     val: `${displayPct.toFixed(1)}%`,                color: '#ffffff' },
+                          { label: 'Grade',          val: grade.label,                                color: grade.color },
+                        ].map(stat => (
+                          <div key={stat.label} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 11, padding: '1rem 0.75rem' }}>
+                            <div style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.3)', marginBottom: '0.5rem' }}>{stat.label}</div>
+                            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '2.2rem', lineHeight: 1, color: stat.color }}>{stat.val}</div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Score bar */}
+                      <div style={{ height: 5, borderRadius: 100, background: 'rgba(255,255,255,0.07)', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', borderRadius: 100, width: `${displayPct}%`, background: grade.color, boxShadow: `0 0 8px ${grade.color}`, transition: 'width 1s ease' }} />
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Question breakdown */}
+                <div className="fade-up" style={{ background: '#090909', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '1.4rem' }}>
+                  <div style={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.35)', marginBottom: '1rem' }}>
+                    Question-wise Breakdown
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                    {evaluation.questionMarks.map(qm => {
+                      const reevalQ  = reevaluation?.comparisonData.find(c => c.questionNumber === qm.questionNumber);
+                      const current  = reevalQ ? reevalQ.newMarksObtained : qm.marksObtained;
+                      const ratio    = current / qm.maxMarks;
+                      const barColor = ratio >= 0.7 ? 'rgba(34,197,94,0.8)' : ratio >= 0.4 ? 'rgba(251,191,36,0.8)' : 'rgba(239,68,68,0.8)';
                       return (
-                        <div
-                          key={qm.questionNumber}
-                          className="p-4 bg-secondary-50 rounded-lg border border-secondary-200"
-                        >
-                          <div className="flex justify-between items-start mb-2">
-                            <span className="font-medium">Question {qm.questionNumber}</span>
-                            <div className="text-right">
-                              <span className="font-semibold">
-                                {currentMarks}/{qm.maxMarks}
-                              </span>
+                        <div key={qm.questionNumber} style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 11, padding: '0.9rem 1.1rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                              <div style={{ width: 30, height: 30, borderRadius: 8, flexShrink: 0, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.72rem', fontWeight: 800, color: 'rgba(255,255,255,0.5)' }}>
+                                Q{qm.questionNumber}
+                              </div>
+                              {qm.comment && (
+                                <span style={{ fontSize: '0.78rem', fontWeight: 400, color: 'rgba(255,255,255,0.38)', fontStyle: 'italic' }}>
+                                  💬 {qm.comment}
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                              <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#ffffff' }}>{current}/{qm.maxMarks}</div>
                               {reevalQ && reevalQ.difference !== 0 && (
-                                <p className={`text-xs font-bold mt-1 ${
-                                  reevalQ.difference > 0 ? 'text-success-600' : 'text-danger-600'
-                                }`}>
-                                  ({reevalQ.difference > 0 ? '+' : ''}{reevalQ.difference})
-                                </p>
+                                <div style={{ fontSize: '0.72rem', fontWeight: 700, color: reevalQ.difference > 0 ? 'rgba(74,222,128,1)' : 'rgba(252,165,165,1)' }}>
+                                  {reevalQ.difference > 0 ? '+' : ''}{reevalQ.difference}
+                                </div>
                               )}
                             </div>
                           </div>
-                          <div className="w-full bg-secondary-200 rounded-full h-2 mb-2">
-                            <div
-                              className={`h-2 rounded-full ${
-                                (currentMarks / qm.maxMarks) * 100 >= 70
-                                  ? 'bg-success-500'
-                                  : (currentMarks / qm.maxMarks) * 100 >= 40
-                                  ? 'bg-warning-500'
-                                  : 'bg-danger-500'
-                              }`}
-                              style={{ width: `${(currentMarks / qm.maxMarks) * 100}%` }}
-                            />
+                          <div className="q-bar-bg">
+                            <div className="q-bar-fill" style={{ width: `${ratio * 100}%`, background: barColor, boxShadow: `0 0 6px ${barColor}` }} />
                           </div>
-                          {qm.comment && (
-                            <p className="text-sm text-secondary-600 italic mt-2">
-                              💬 {qm.comment}
-                            </p>
-                          )}
                         </div>
                       );
                     })}
                   </div>
                 </div>
 
-                {/* Teacher Remarks */}
+                {/* Remarks */}
                 {(evaluation.remarks || reevaluation?.newRemarks) && (
-                  <div className="card bg-primary-50 border border-primary-200">
-                    <h3 className="text-lg font-semibold mb-3">Teacher's Remarks</h3>
+                  <div className="fade-up" style={{ background: '#090909', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '1.4rem' }}>
+                    <div style={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.35)', marginBottom: '1rem' }}>
+                      Teacher's Remarks
+                    </div>
                     {reevaluation?.newRemarks && (
-                      <div className="mb-3 p-3 bg-purple-50 border border-purple-200 rounded">
-                        <p className="text-xs font-semibold text-purple-800 mb-1">
-                          Re-evaluation Remarks:
-                        </p>
-                        <p className="text-secondary-700">{reevaluation.newRemarks}</p>
+                      <div style={{ background: 'rgba(167,139,250,0.07)', border: '1px solid rgba(167,139,250,0.2)', borderRadius: 10, padding: '0.85rem', marginBottom: '0.75rem' }}>
+                        <div style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: 'rgba(216,180,254,0.7)', marginBottom: '0.35rem' }}>Re-evaluation</div>
+                        <p style={{ fontSize: '0.88rem', fontWeight: 500, color: 'rgba(255,255,255,0.65)', lineHeight: 1.6 }}>{reevaluation.newRemarks}</p>
                       </div>
                     )}
                     {evaluation.remarks && (
-                      <div>
-                        <p className="text-xs font-semibold text-secondary-600 mb-1">
-                          Original Remarks:
-                        </p>
-                        <p className="text-secondary-700">{evaluation.remarks}</p>
+                      <div style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: '0.85rem' }}>
+                        <div style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.28)', marginBottom: '0.35rem' }}>Original</div>
+                        <p style={{ fontSize: '0.88rem', fontWeight: 500, color: 'rgba(255,255,255,0.55)', lineHeight: 1.6 }}>{evaluation.remarks}</p>
                       </div>
                     )}
                   </div>
                 )}
 
-                {/* Evaluation Info */}
-                <div className="card bg-secondary-100">
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <p className="text-secondary-600">Evaluated By</p>
-                      <p className="font-medium text-secondary-900">{evaluation.teacherName}</p>
-                    </div>
-                    <div>
-                      <p className="text-secondary-600">Evaluated On</p>
-                      <p className="font-medium text-secondary-900">
-                        {new Date(evaluation.evaluatedAt).toLocaleDateString()}
-                      </p>
-                    </div>
+                {/* Evaluation meta */}
+                <div className="fade-up" style={{ background: '#090909', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '1.25rem 1.4rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    {[
+                      { label: 'Evaluated By', val: evaluation.teacherName },
+                      { label: 'Evaluated On', val: new Date(evaluation.evaluatedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) },
+                    ].map(f => (
+                      <div key={f.label}>
+                        <div style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.28)', marginBottom: '0.3rem' }}>{f.label}</div>
+                        <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#ffffff' }}>{f.val}</div>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
-                {/* ── Answer Sheet + File Integrity side by side ── */}
-                <div className="card">
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <a
-                      href={selectedSubmission.answerSheetUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn btn-outline flex-1 text-center"
+                {/* Answer sheet + file verify */}
+                <div className="fade-up" style={{ background: '#090909', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '1.25rem 1.4rem' }}>
+                  <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' as const }}>
+                    <a href={selectedSubmission.answerSheetUrl} target="_blank" rel="noopener noreferrer" style={{ flex: 1, minWidth: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.45rem', padding: '0.75rem', borderRadius: 10, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', fontSize: '0.85rem', fontWeight: 700, color: 'rgba(255,255,255,0.7)', textDecoration: 'none', transition: 'background 0.2s' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.09)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
                     >
-                      📄 View Submitted Answer Sheet
+                      📄 View Answer Sheet
                     </a>
-                    {/* ── NEW: File Integrity Badge ── */}
-                    <div className="flex-1">
-                      <FileHashBadge />
+                    <div style={{ flex: 1, minWidth: 160 }}>
+                      <FileHashVerifyButton verification={fileHashVerification} onVerify={handleVerifyFileHash} />
                     </div>
-                    {/* ──────────────────────────────── */}
                   </div>
                 </div>
-                {/* ─────────────────────────────────────────────── */}
 
               </div>
             ) : (
-              <div className="card text-center py-12">
-                <div className="text-5xl mb-4">❌</div>
-                <p className="text-danger-600">{error || 'Failed to load evaluation'}</p>
+              <div className="fade-up" style={{ background: '#090909', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 14, padding: '5rem 2rem', textAlign: 'center' }}>
+                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>❌</div>
+                <p style={{ fontSize: '0.92rem', fontWeight: 600, color: 'rgba(252,165,165,0.9)' }}>
+                  {error || 'Failed to load evaluation'}
+                </p>
               </div>
             )}
           </div>
+
         </div>
       </div>
-    </div>
+    </>
   );
 }

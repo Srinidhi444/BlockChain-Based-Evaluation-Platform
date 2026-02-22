@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   keywords: ['education', 'evaluation', 'blockchain', 'answer sheets', 'transparency'],
   authors: [{ name: 'Your Institution' }],
   viewport: 'width=device-width, initial-scale=1',
-  themeColor: '#0ea5e9',
+  themeColor: '#050505',
 };
 
 export default function RootLayout({
@@ -24,7 +24,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={inter.variable}>
-      <body className="min-h-screen bg-secondary-50">
+      <body className="min-h-screen" style={{background:'#050505'}}>
         {children}
       </body>
     </html>

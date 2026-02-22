@@ -461,7 +461,7 @@ export default function LoginPage() {
             {/* ─── Navbar ─── */}
             <nav id="login-nav">
                 <Link href="/" className="ln-logo">
-                    <div className="ln-logo-mark"><GraduationCap size={18} /></div>
+                    <img src="/cropped_circle_image (1).png" alt="GRADEX" style={{width:30,height:30,borderRadius:7,objectFit:'cover'}} />
                     GRADEX
                 </Link>
                 <span className="nav-secure">Secure Login</span>

@@ -469,7 +469,7 @@ export default function StudentDashboard() {
         <aside id="sidebar" className={sideCollapsed ? 'collapsed' : ''}>
           <div className="sb-top">
             <Link href="/" className="sb-logo">
-              <div className="sb-logo-mark"><GraduationCap size={18} /></div>
+              <img src="/cropped_circle_image (1).png" alt="GRADEX" style={{width:32,height:32,borderRadius:8,objectFit:'cover',flexShrink:0}} />
               {!sideCollapsed && <span className="sb-logo-text">GRADEX</span>}
             </Link>
             <button className="sb-collapse-btn" onClick={() => setSideCollapsed(p => !p)}>

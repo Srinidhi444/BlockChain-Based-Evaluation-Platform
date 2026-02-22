@@ -110,13 +110,9 @@ export default function HomePage() {
         onUpdate(self: any) {
           const nav = document.getElementById('nav');
           if (!nav) return;
-          nav.style.background = self.scroller.scrollTop > 60
-            ? 'rgba(5,5,5,0.95)'
-            : 'transparent';
-          nav.style.borderBottom = self.scroller.scrollTop > 60
-            ? '1px solid rgba(255,255,255,0.07)'
-            : '1px solid transparent';
-          nav.style.backdropFilter = self.scroller.scrollTop > 60 ? 'blur(20px)' : 'none';
+          nav.style.boxShadow = self.scroller.scrollTop > 60
+            ? '0 1px 40px rgba(0,0,0,0.6)'
+            : 'none';
         },
       });
 
@@ -359,6 +355,17 @@ export default function HomePage() {
     };
   }, []);
 
+  /* ─── FAVICON ─── */
+  useEffect(() => {
+    const link: HTMLLinkElement =
+      (document.querySelector("link[rel~='icon']") as HTMLLinkElement) ||
+      document.createElement('link');
+    link.type = 'image/png';
+    link.rel = 'icon';
+    link.href = '/cropped_circle_image (1).png';
+    document.head.appendChild(link);
+  }, []);
+
   const scrollTo = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -425,9 +432,9 @@ export default function HomePage() {
           z-index: 1000;
           display: flex; align-items: center; justify-content: space-between;
           padding: 1.15rem 2.5rem;
-          background: transparent;
-          border-bottom: 1px solid transparent;
-          transition: background 0.4s ease, border-color 0.4s ease, backdrop-filter 0.4s ease;
+          background: #050505;
+          border-bottom: 1px solid rgba(255,255,255,0.07);
+          transition: box-shadow 0.4s ease;
         }
         .n-logo {
           display: flex; align-items: center; gap: 0.55rem;
@@ -968,8 +975,8 @@ export default function HomePage() {
         {/* ─── NAVBAR ─── */}
         <nav id="nav">
           <span className="n-logo" onClick={() => scrollTo('hero')}>
-            <div className="n-logo-mark">🎓</div>
-            EvalChain
+            <img src="/cropped_circle_image (1).png" alt="GRADEX" style={{width:44,height:44,borderRadius:8,objectFit:'cover'}} />
+            GRADEX
           </span>
           <div className="n-links">
             {[['Home','hero'],['Services','services'],['Features','features'],['Why Us','importance'],['Before & After','before-after'],['How It Works','how-it-works']].map(([l,id]) => (
@@ -1220,8 +1227,8 @@ export default function HomePage() {
         {/* ─── FOOTER ─── */}
         <footer id="footer">
           <div style={{display:'flex',alignItems:'center',gap:'0.5rem'}}>
-            <div className="n-logo-mark" style={{width:24,height:24,fontSize:'0.65rem',borderRadius:5}}>🎓</div>
-            <span style={{fontSize:'0.82rem',fontWeight:700,color:'rgba(240,240,240,0.3)'}}>EvalChain</span>
+            <img src="/cropped_circle_image (1).png" alt="GRADEX" style={{width:24,height:24,borderRadius:5,objectFit:'cover'}} />
+            <span style={{fontSize:'0.82rem',fontWeight:700,color:'rgba(240,240,240,0.3)'}}>GRADEX</span>
           </div>
           <span className="foot-copy">© 2026 Answer Sheet Evaluation System. All rights reserved.</span>
           <div className="foot-links">

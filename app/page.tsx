@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { GraduationCap, UserCog, Shield, Link2, Eye, BarChart2, ScanSearch, FileText, Target, Timer, Search, Scale, Clock, Cloud, Monitor, Upload, PenLine, Bot, Package, RefreshCw } from 'lucide-react';
+import { GraduationCap, UserCog, Shield, Link2, Eye, BarChart2, ScanSearch, FileText, Target, Timer, Search, Scale, Clock, Cloud, Monitor, Upload, PenLine, Bot, Package, RefreshCw, Mail, Users, FolderOpen, MailOpen } from 'lucide-react';
 
 export default function HomePage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1152,10 +1152,10 @@ export default function HomePage() {
               <div id="before-card" className="ba-card">
                 <div className="ba-label"><Package size={16} /> Before</div>
                 {[
-                  ['📮','Physical Answer Sheets','Days of transit time, risk of loss in mail.'],
-                  ['🤝','Known Student–Teacher Relations','Bias inevitable, grades inherently unfair.'],
-                  ['📁','Results in Excel Sheets','Easily altered, zero audit trail.'],
-                  ['📬','Grievances via Written Letters','Weeks to resolve, no tracking.'],
+                  [<Mail size={16} />,'Physical Answer Sheets','Days of transit time, risk of loss in mail.'],
+                  [<Users size={16} />,'Known Student–Teacher Relations','Bias inevitable, grades inherently unfair.'],
+                  [<FolderOpen size={16} />,'Results in Excel Sheets','Easily altered, zero audit trail.'],
+                  [<MailOpen size={16} />,'Grievances via Written Letters','Weeks to resolve, no tracking.'],
                   [<Clock size={16} />,'Manual Mark Tallying','Error-prone, extremely time-consuming.'],
                 ].map(([icon,title,sub],i) => (
                   <div key={i} className="ba-item ba-before-item">

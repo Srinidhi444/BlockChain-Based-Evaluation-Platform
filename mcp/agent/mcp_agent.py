@@ -418,6 +418,7 @@ class MCPAgent:
             tools=TOOL_DEFINITIONS,
             tool_choice="auto",
             temperature=0.1,
+             parallel_tool_calls=False,
             max_tokens=2048,   # ✅ Reduced from 4096 for fallback safety
         )
 

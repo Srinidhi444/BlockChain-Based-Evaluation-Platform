@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 
 interface ParsedStudent {
@@ -192,7 +193,7 @@ export default function ImportStudentsPage() {
         <nav style={{ height: 52, background: 'rgba(5,5,5,0.92)', borderBottom: '1px solid rgba(255,255,255,0.07)', backdropFilter: 'blur(20px)', display: 'flex', alignItems: 'center', padding: '0 1.75rem', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50 }}>
           <NavBack href="/audit-dashboard" label="Admin Dashboard" />
           <div style={{ fontSize: '0.78rem', fontWeight: 500, color: 'rgba(255,255,255,0.28)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            EvalChain <span style={{ color: 'rgba(255,255,255,0.18)' }}>/</span>
+            GRADEX <span style={{ color: 'rgba(255,255,255,0.18)' }}>/</span>
             <span style={{ color: 'rgba(255,255,255,0.55)' }}>Import Students</span>
           </div>
           <div style={{ width: 90 }} />
@@ -286,14 +287,14 @@ export default function ImportStudentsPage() {
               {/* Import error */}
               {importError && (
                 <div style={{ padding: '0.85rem 1rem', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10 }}>
-                  <p style={{ fontSize: '0.83rem', fontWeight: 600, color: 'rgba(252,165,165,0.95)' }}>⚠️ {importError}</p>
+                  <p style={{ fontSize: '0.83rem', fontWeight: 600, color: 'rgba(252,165,165,0.95)' }}><AlertTriangle size={18} /> {importError}</p>
                 </div>
               )}
 
               {/* Success message */}
               {successMsg && (
                 <div style={{ padding: '0.85rem 1rem', background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.25)', borderRadius: 10 }}>
-                  <p style={{ fontSize: '0.83rem', fontWeight: 600, color: 'rgba(74,222,128,0.95)' }}>✅ {successMsg}</p>
+                  <p style={{ fontSize: '0.83rem', fontWeight: 600, color: 'rgba(74,222,128,0.95)' }}><CheckCircle2 size={18} /> {successMsg}</p>
                 </div>
               )}
 

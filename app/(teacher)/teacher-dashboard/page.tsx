@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import { Landmark, FileText, CheckCircle2, ClipboardList, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -62,7 +63,7 @@ function StatCard({ value, label, accent }: { value: number; label: string; acce
 /* ─── Action card ─── */
 function ActionCard({
   href, icon, title, desc, accent, badge,
-}: { href: string; icon: string; title: string; desc: string; accent: string; badge?: number }) {
+}: { href: string; icon: React.ReactNode; title: string; desc: string; accent: string; badge?: number }) {
   const [hovered, setHovered] = useState(false);
   return (
     <Link href={href} style={{
@@ -230,7 +231,7 @@ export default function TeacherDashboard() {
           {/* Brand */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
             <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '1.35rem', letterSpacing: '0.06em', color: '#ffffff' }}>
-              EvalChain
+              GRADEX
             </div>
             <div style={{ padding: '0.18rem 0.55rem', borderRadius: 100, background: 'rgba(167,139,250,0.15)', border: '1px solid rgba(167,139,250,0.3)', fontSize: '0.62rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: 'rgba(216,180,254,0.9)' }}>
               Teacher
@@ -297,7 +298,7 @@ export default function TeacherDashboard() {
             </h1>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' as const }}>
               <span style={{ padding: '0.25rem 0.7rem', borderRadius: 100, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', fontSize: '0.78rem', fontWeight: 600, color: 'rgba(255,255,255,0.5)' }}>
-                🏛️ {user?.department}
+                <Landmark size={18} /> {user?.department}
               </span>
               {user?.subjects.map(s => (
                 <span key={s} style={{ padding: '0.25rem 0.7rem', borderRadius: 100, background: 'rgba(147,197,253,0.08)', border: '1px solid rgba(147,197,253,0.2)', fontSize: '0.78rem', fontWeight: 600, color: 'rgba(147,197,253,0.8)' }}>
@@ -318,9 +319,9 @@ export default function TeacherDashboard() {
 
           {/* ── Action cards ── */}
           <div className="fade-up3" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '0.85rem', marginBottom: '1.5rem' }}>
-            <ActionCard href="/create-test"  icon="📝" title="Create Test"    desc="Upload question paper and marking scheme"  accent="rgba(147,197,253,1)" />
-            <ActionCard href="/evaluate"     icon="✅" title="Evaluate"       desc="Review and mark student submissions"       accent="rgba(74,222,128,1)"  />
-            <ActionCard href="/grievances"   icon="📋" title="Grievances"     desc="Review and re-evaluate submissions"        accent="rgba(216,180,254,1)" badge={stats?.pendingGrievances} />
+            <ActionCard href="/create-test"  icon={<FileText size={18} />} title="Create Test"    desc="Upload question paper and marking scheme"  accent="rgba(147,197,253,1)" />
+            <ActionCard href="/evaluate"     icon={<CheckCircle2 size={18} />} title="Evaluate"       desc="Review and mark student submissions"       accent="rgba(74,222,128,1)"  />
+            <ActionCard href="/grievances"   icon={<ClipboardList size={18} />} title="Grievances"     desc="Review and re-evaluate submissions"        accent="rgba(216,180,254,1)" badge={stats?.pendingGrievances} />
           </div>
 
           {/* ── Quick links ── */}
@@ -328,7 +329,7 @@ export default function TeacherDashboard() {
           {/* Error */}
           {error && (
             <div style={{ marginTop: '1rem', padding: '0.85rem 1rem', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, fontSize: '0.85rem', fontWeight: 600, color: 'rgba(252,165,165,0.9)' }}>
-              ⚠️ {error}
+              <AlertTriangle size={18} /> {error}
             </div>
           )}
 

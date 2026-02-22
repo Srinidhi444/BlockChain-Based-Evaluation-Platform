@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { ClipboardList, AlertTriangle } from 'lucide-react';
 import FloatingChat from "@/components/FloatingChat";
 import Link from 'next/link';
 
@@ -353,7 +354,7 @@ export default function AuditDashboard() {
         <nav style={{ height: 52, background: 'rgba(5,5,5,0.92)', borderBottom: '1px solid rgba(255,255,255,0.07)', backdropFilter: 'blur(20px)', display: 'flex', alignItems: 'center', padding: '0 1.75rem', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50 }}>
           <NavBack href="/admin-dashboard" label="Admin Dashboard" />
           <div style={{ fontSize: '0.78rem', fontWeight: 500, color: 'rgba(255,255,255,0.28)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            EvalChain <span style={{ color: 'rgba(255,255,255,0.18)' }}>/</span>
+            GRADEX <span style={{ color: 'rgba(255,255,255,0.18)' }}>/</span>
             <span style={{ color: 'rgba(255,255,255,0.55)' }}>Audit & Bias</span>
           </div>
           <ExportButton onClick={handleExportCSV} exporting={exporting} />
@@ -407,7 +408,7 @@ export default function AuditDashboard() {
           {/* ── Tabs + Filters (only logs tab now) ── */}
           <div className="fade-up3" style={{ background: '#090909', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '1.25rem 1.4rem', marginBottom: '1rem' }}>
             <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '1.25rem', borderBottom: '1px solid rgba(255,255,255,0.07)', paddingBottom: '1rem' }}>
-              <TabBtn active={true} onClick={() => { /* only logs */ }}>📋 Audit Logs</TabBtn>
+              <TabBtn active={true} onClick={() => { /* only logs */ }}><ClipboardList size={18} /> Audit Logs</TabBtn>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '0.85rem' }}>
               <div><FLabel>Event Type</FLabel>
@@ -454,7 +455,7 @@ export default function AuditDashboard() {
 
             {error && (
               <div style={{ marginBottom: '1rem', padding: '0.8rem 1rem', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 9, display: 'flex', gap: '0.5rem' }}>
-                <span>⚠️</span>
+                <span><AlertTriangle size={18} /></span>
                 <p style={{ fontSize: '0.83rem', fontWeight: 600, color: 'rgba(252,165,165,0.95)' }}>{error}</p>
               </div>
             )}

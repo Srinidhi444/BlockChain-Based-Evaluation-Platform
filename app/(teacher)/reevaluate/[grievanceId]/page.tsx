@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
+import { XCircle, AlertTriangle, CheckCircle2 } from 'lucide-react';
 
 interface QuestionMark {
   questionNumber: number; maxMarks: number; marksObtained: number; comment?: string;
@@ -309,7 +310,7 @@ export default function ReEvaluatePage() {
       <DashCursor />
       <div style={{ minHeight: '100vh', background: '#050505', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ background: '#090909', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 16, padding: '3rem 2rem', textAlign: 'center', maxWidth: 360 }}>
-          <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>❌</div>
+          <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}><XCircle size={18} /></div>
           <p style={{ fontSize: '0.95rem', fontWeight: 700, color: 'rgba(252,165,165,0.9)', marginBottom: '1.5rem' }}>Grievance not found</p>
           <Link href="/grievances" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', padding: '0.65rem 1.4rem', borderRadius: 10, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)', fontSize: '0.85rem', fontWeight: 700, color: 'rgba(255,255,255,0.7)', textDecoration: 'none' }}>
             ← Back to Grievances
@@ -360,7 +361,7 @@ export default function ReEvaluatePage() {
         <nav style={{ height: 52, background: 'rgba(5,5,5,0.92)', borderBottom: '1px solid rgba(255,255,255,0.07)', backdropFilter: 'blur(20px)', display: 'flex', alignItems: 'center', padding: '0 1.75rem', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50 }}>
           <NavBack href="/grievances" label="Grievances" />
           <div style={{ fontSize: '0.78rem', fontWeight: 500, color: 'rgba(255,255,255,0.28)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            EvalChain <span style={{ color: 'rgba(255,255,255,0.18)' }}>/</span>
+            GRADEX <span style={{ color: 'rgba(255,255,255,0.18)' }}>/</span>
             <span style={{ color: 'rgba(255,255,255,0.55)' }}>Re-evaluate</span>
           </div>
           <div style={{ width: 90 }} />
@@ -469,13 +470,13 @@ export default function ReEvaluatePage() {
 
               {error && (
                 <div style={{ padding: '0.85rem 1rem', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, display: 'flex', gap: '0.5rem' }}>
-                  <span style={{ flexShrink: 0 }}>⚠️</span>
+                  <span style={{ flexShrink: 0 }}><AlertTriangle size={18} /></span>
                   <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'rgba(252,165,165,0.95)' }}>{error}</p>
                 </div>
               )}
               {success && (
                 <div style={{ padding: '0.85rem 1rem', background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.25)', borderRadius: 10, display: 'flex', gap: '0.5rem' }}>
-                  <span style={{ flexShrink: 0 }}>✅</span>
+                  <span style={{ flexShrink: 0 }}><CheckCircle2 size={18} /></span>
                   <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'rgba(74,222,128,0.95)' }}>{success}</p>
                 </div>
               )}
@@ -605,7 +606,7 @@ export default function ReEvaluatePage() {
               ) : (
                 <div style={{ background: '#090909', border: '1px solid rgba(34,197,94,0.25)', borderRadius: 14, padding: '1.4rem' }}>
                   <p style={{ fontSize: '0.92rem', fontWeight: 700, color: 'rgba(74,222,128,0.9)', textAlign: 'center', marginBottom: reevaluation ? '1rem' : 0 }}>
-                    ✅ Re-evaluation completed
+                    <CheckCircle2 size={18} /> Re-evaluation completed
                   </p>
 
                   {/* ✅ Show re-evaluation result stats */}
@@ -665,7 +666,7 @@ function SubmitButton({ onClick, saving }: { onClick: () => void; saving: boolea
       onMouseEnter={() => setH(true)} onMouseLeave={() => setH(false)}>
       {saving
         ? <><div style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid rgba(74,222,128,0.2)', borderTop: '2px solid rgba(74,222,128,0.9)', animation: 'spin 0.7s linear infinite', flexShrink: 0 }} />Submitting…</>
-        : <>✅ Submit Re-evaluation</>
+        : <><CheckCircle2 size={18} /> Submit Re-evaluation</>
       }
     </button>
   );

@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Eye, FileText, AlertTriangle, Inbox } from 'lucide-react';
 
 interface Grievance {
   grievanceId: string; submissionId: string; testId: string;
@@ -192,7 +193,7 @@ function ReviewLink({ href, completed }: { href: string; completed: boolean }) {
       transition: 'all 0.2s', whiteSpace: 'nowrap' as const,
     }}
       onMouseEnter={() => setH(true)} onMouseLeave={() => setH(false)}>
-      {completed ? '👁️ View' : '📝 Review & Evaluate'}
+      {completed ? <><Eye size={18} /> View</> : <><FileText size={18} /> Review & Evaluate</>}
     </Link>
   );
 }
@@ -209,7 +210,7 @@ function AnswerSheetLink({ href }: { href: string }) {
       transition: 'all 0.2s', whiteSpace: 'nowrap' as const,
     }}
       onMouseEnter={() => setH(true)} onMouseLeave={() => setH(false)}>
-      📄 View Answer Sheet
+      <FileText size={18} /> View Answer Sheet
     </a>
   );
 }
@@ -294,7 +295,7 @@ export default function TeacherGrievancesPage() {
         <nav style={{ height: 52, background: 'rgba(5,5,5,0.92)', borderBottom: '1px solid rgba(255,255,255,0.07)', backdropFilter: 'blur(20px)', display: 'flex', alignItems: 'center', padding: '0 1.75rem', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50 }}>
           <NavBack href="/dashboard" />
           <div style={{ fontSize: '0.78rem', fontWeight: 500, color: 'rgba(255,255,255,0.28)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            EvalChain <span style={{ color: 'rgba(255,255,255,0.18)' }}>/</span>
+            GRADEX <span style={{ color: 'rgba(255,255,255,0.18)' }}>/</span>
             <span style={{ color: 'rgba(255,255,255,0.55)' }}>Grievances</span>
           </div>
           <div style={{ width: 90 }} />
@@ -356,7 +357,7 @@ export default function TeacherGrievancesPage() {
           {/* ── Error ── */}
           {error && (
             <div style={{ marginBottom: '1rem', padding: '0.85rem 1rem', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, display: 'flex', gap: '0.5rem' }}>
-              <span>⚠️</span>
+              <span><AlertTriangle size={18} /></span>
               <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'rgba(252,165,165,0.95)' }}>{error}</p>
             </div>
           )}
@@ -364,7 +365,7 @@ export default function TeacherGrievancesPage() {
           {/* ── Empty ── */}
           {grievances.length === 0 ? (
             <div style={{ background: '#090909', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '5rem 2rem', textAlign: 'center' }}>
-              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📭</div>
+              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}><Inbox size={18} /></div>
               <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'rgba(255,255,255,0.7)', marginBottom: '0.5rem' }}>No Grievances Found</div>
               <div style={{ fontSize: '0.85rem', fontWeight: 500, color: 'rgba(255,255,255,0.35)' }}>
                 {filterStatus || filterType ? 'Try adjusting your filters' : 'No grievances have been assigned to you yet'}

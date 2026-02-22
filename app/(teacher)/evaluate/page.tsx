@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { RefreshCw, AlertTriangle, Sparkles, Inbox } from 'lucide-react';
 
 interface Submission {
   _id: string; submissionId: string; testId: string;
@@ -112,7 +113,7 @@ function RefreshButton({ onClick }: { onClick: () => void }) {
   return (
     <button onClick={handleClick} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.42rem 0.85rem', borderRadius: 8, background: h ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.03)', border: `1px solid ${h ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.08)'}`, fontSize: '0.78rem', fontWeight: 700, color: h ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.38)', cursor: 'none', fontFamily: 'inherit', transition: 'all 0.2s' }}
       onMouseEnter={() => setH(true)} onMouseLeave={() => setH(false)}>
-      <span style={{ display: 'inline-block', animation: spinning ? 'spin 0.7s linear' : 'none' }}>🔄</span>
+      <span style={{ display: 'inline-block', animation: spinning ? 'spin 0.7s linear' : 'none' }}><RefreshCw size={18} /></span>
       Refresh
     </button>
   );
@@ -243,7 +244,7 @@ export default function EvaluatePage() {
         <nav style={{ height: 52, background: 'rgba(5,5,5,0.92)', borderBottom: '1px solid rgba(255,255,255,0.07)', backdropFilter: 'blur(20px)', display: 'flex', alignItems: 'center', padding: '0 1.75rem', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50 }}>
           <NavBack href="/dashboard" />
           <div style={{ fontSize: '0.78rem', fontWeight: 500, color: 'rgba(255,255,255,0.28)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            EvalChain <span style={{ color: 'rgba(255,255,255,0.18)' }}>/</span>
+            GRADEX <span style={{ color: 'rgba(255,255,255,0.18)' }}>/</span>
             <span style={{ color: 'rgba(255,255,255,0.55)' }}>Evaluate</span>
           </div>
           <div style={{ width: 90 }} />
@@ -326,7 +327,7 @@ export default function EvaluatePage() {
             {/* Error */}
             {error && (
               <div style={{ marginBottom: '1rem', padding: '0.8rem 1rem', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, display: 'flex', gap: '0.5rem' }}>
-                <span>⚠️</span>
+                <span><AlertTriangle size={18} /></span>
                 <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'rgba(252,165,165,0.95)' }}>{error}</p>
               </div>
             )}
@@ -335,7 +336,7 @@ export default function EvaluatePage() {
             {filteredSubmissions.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '4rem 2rem' }}>
                 <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>
-                  {filters.status === 'uploaded,under_evaluation' ? '✨' : '📭'}
+                  {filters.status === 'uploaded,under_evaluation' ? <Sparkles size={18} /> : <Inbox size={18} />}
                 </div>
                 <div style={{ fontSize: '1rem', fontWeight: 800, color: 'rgba(255,255,255,0.6)', marginBottom: '0.5rem' }}>
                   {filters.status === 'uploaded,under_evaluation' ? 'All caught up!' : 'No submissions found'}

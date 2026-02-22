@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
+import { XCircle, AlertTriangle, CheckCircle2, Save } from 'lucide-react';
 
 interface Test {
   testId: string; title: string; subject: string; totalMarks: number;
@@ -248,7 +249,7 @@ export default function EvaluateSubmissionPage() {
       <DashCursor />
       <div style={{ minHeight: '100vh', background: '#050505', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ background: '#090909', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 16, padding: '3rem 2rem', textAlign: 'center', maxWidth: 360 }}>
-          <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>❌</div>
+          <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}><XCircle size={18} /></div>
           <p style={{ fontSize: '0.95rem', fontWeight: 700, color: 'rgba(252,165,165,0.9)', marginBottom: '1.5rem' }}>Submission not found</p>
           <Link href="/evaluate" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', padding: '0.65rem 1.4rem', borderRadius: 10, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)', fontSize: '0.85rem', fontWeight: 700, color: 'rgba(255,255,255,0.7)', textDecoration: 'none' }}>
             ← Back to Submissions
@@ -291,7 +292,7 @@ export default function EvaluateSubmissionPage() {
         <nav style={{ height: 52, background: 'rgba(5,5,5,0.92)', borderBottom: '1px solid rgba(255,255,255,0.07)', backdropFilter: 'blur(20px)', display: 'flex', alignItems: 'center', padding: '0 1.75rem', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50 }}>
           <NavBack href="/evaluate" label="Submissions" />
           <div style={{ fontSize: '0.78rem', fontWeight: 500, color: 'rgba(255,255,255,0.28)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            EvalChain <span style={{ color: 'rgba(255,255,255,0.18)' }}>/</span>
+            GRADEX <span style={{ color: 'rgba(255,255,255,0.18)' }}>/</span>
             <span style={{ color: 'rgba(255,255,255,0.55)' }}>Evaluate Sheet</span>
           </div>
           <div style={{ width: 90 }} />
@@ -370,13 +371,13 @@ export default function EvaluateSubmissionPage() {
               {/* Error / Success */}
               {error && (
                 <div style={{ padding: '0.85rem 1rem', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, display: 'flex', gap: '0.5rem' }}>
-                  <span style={{ flexShrink: 0 }}>⚠️</span>
+                  <span style={{ flexShrink: 0 }}><AlertTriangle size={18} /></span>
                   <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'rgba(252,165,165,0.95)' }}>{error}</p>
                 </div>
               )}
               {success && (
                 <div style={{ padding: '0.85rem 1rem', background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.25)', borderRadius: 10, display: 'flex', gap: '0.5rem' }}>
-                  <span style={{ flexShrink: 0 }}>✅</span>
+                  <span style={{ flexShrink: 0 }}><CheckCircle2 size={18} /></span>
                   <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'rgba(74,222,128,0.95)' }}>{success}</p>
                 </div>
               )}
@@ -497,7 +498,7 @@ export default function EvaluateSubmissionPage() {
               ) : (
                 <div style={{ background: '#090909', border: '1px solid rgba(34,197,94,0.25)', borderRadius: 14, padding: '1.25rem', textAlign: 'center' }}>
                   <p style={{ fontSize: '0.92rem', fontWeight: 700, color: 'rgba(74,222,128,0.9)' }}>
-                    ✅ This evaluation has been finalized
+                    <CheckCircle2 size={18} /> This evaluation has been finalized
                   </p>
                 </div>
               )}
@@ -516,7 +517,7 @@ function DraftButton({ onClick, saving }: { onClick: () => void; saving: boolean
   return (
     <button onClick={onClick} disabled={saving} style={{ flex: 1, padding: '0.85rem', borderRadius: 11, background: h ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.14)', fontSize: '0.9rem', fontWeight: 700, color: h ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.5)', cursor: saving ? 'not-allowed' : 'none', fontFamily: 'inherit', opacity: saving ? 0.4 : 1, transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.45rem' }}
       onMouseEnter={() => setH(true)} onMouseLeave={() => setH(false)}>
-      {saving ? <LoadingSpinner dark /> : '💾'}
+      {saving ? <LoadingSpinner dark /> : <Save size={18} />}
       {saving ? 'Saving…' : 'Save Draft'}
     </button>
   );
@@ -527,7 +528,7 @@ function FinalizeButton({ onClick, saving }: { onClick: () => void; saving: bool
   return (
     <button onClick={onClick} disabled={saving} style={{ flex: 1, padding: '0.85rem', borderRadius: 11, background: saving ? 'rgba(34,197,94,0.05)' : h ? 'rgba(34,197,94,0.2)' : 'rgba(34,197,94,0.12)', border: `1px solid ${h ? 'rgba(34,197,94,0.5)' : 'rgba(34,197,94,0.3)'}`, fontSize: '0.9rem', fontWeight: 800, color: 'rgba(74,222,128,1)', cursor: saving ? 'not-allowed' : 'none', fontFamily: 'inherit', opacity: saving ? 0.5 : 1, transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.45rem' }}
       onMouseEnter={() => setH(true)} onMouseLeave={() => setH(false)}>
-      {saving ? <LoadingSpinner /> : '✅'}
+      {saving ? <LoadingSpinner /> : <CheckCircle2 size={18} />}
       {saving ? 'Finalizing…' : 'Finalize & Submit'}
     </button>
   );

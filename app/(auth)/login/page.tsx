@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { GraduationCap, UserCog, Shield, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 
 export default function LoginPage() {
@@ -460,8 +461,8 @@ export default function LoginPage() {
             {/* ─── Navbar ─── */}
             <nav id="login-nav">
                 <Link href="/" className="ln-logo">
-                    <div className="ln-logo-mark">🎓</div>
-                    EvalChain
+                    <div className="ln-logo-mark"><GraduationCap size={18} /></div>
+                    GRADEX
                 </Link>
                 <span className="nav-secure">Secure Login</span>
             </nav>
@@ -492,7 +493,7 @@ export default function LoginPage() {
 
                         {error && (
                             <div className="alert alert-error">
-                                <span>⚠</span>
+                                <span><AlertTriangle size={18} /></span>
                                 <span>{error}</span>
                             </div>
                         )}
@@ -542,9 +543,9 @@ export default function LoginPage() {
 
                         {/* Role chips */}
                         <div className="role-chips">
-                            {[['👨‍🎓', 'Student'], ['👩‍🏫', 'Teacher'], ['🛡️', 'Admin']].map(([ic, role]) => (
+                            {[{ icon: <GraduationCap size={18} />, role: 'Student' }, { icon: <UserCog size={18} />, role: 'Teacher' }, { icon: <Shield size={18} />, role: 'Admin' }].map(({ icon, role }) => (
                                 <div key={role} className="role-chip">
-                                    <div className="role-chip-icon">{ic}</div>
+                                    <div className="role-chip-icon">{icon}</div>
                                     <div className="role-chip-label">{role}</div>
                                 </div>
                             ))}

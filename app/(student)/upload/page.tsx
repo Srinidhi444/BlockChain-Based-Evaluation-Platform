@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { AlertTriangle, CheckCircle2, Link as LinkIcon, FileText, Image, Pin } from 'lucide-react';
 
 interface Test {
   _id: string; testId: string; title: string;
@@ -264,7 +265,7 @@ export default function UploadPage() {
           </Link>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.78rem', color: 'rgba(255,255,255,0.28)', fontWeight: 500 }}>
-            EvalChain
+            GRADEX
             <span style={{ color: 'rgba(255,255,255,0.18)' }}>/</span>
             <span style={{ color: 'rgba(255,255,255,0.55)' }}>Upload</span>
           </div>
@@ -303,7 +304,7 @@ export default function UploadPage() {
               background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)',
               borderRadius: 12, display: 'flex', alignItems: 'flex-start', gap: '0.65rem',
             }}>
-              <span style={{ fontSize: '1rem', flexShrink: 0 }}>⚠️</span>
+              <AlertTriangle size={18} style={{ flexShrink: 0 }} />
               <p style={{ fontSize: '0.88rem', fontWeight: 600, color: 'rgba(252,165,165,0.95)' }}>
                 {error}
               </p>
@@ -317,7 +318,7 @@ export default function UploadPage() {
               background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.25)',
               borderRadius: 12, display: 'flex', alignItems: 'flex-start', gap: '0.65rem',
             }}>
-              <span style={{ fontSize: '1rem', flexShrink: 0 }}>✅</span>
+              <CheckCircle2 size={18} style={{ flexShrink: 0 }} />
               <p style={{ fontSize: '0.88rem', fontWeight: 600, color: 'rgba(74,222,128,0.95)' }}>
                 {success}
               </p>
@@ -344,7 +345,7 @@ export default function UploadPage() {
                 color: 'rgba(167,139,250,0.85)', marginBottom: '1rem',
                 display: 'flex', alignItems: 'center', gap: '0.4rem',
               }}>
-                🔗 Blockchain Verification
+                <LinkIcon size={18} /> Blockchain Verification
               </div>
 
               {[
@@ -499,7 +500,7 @@ export default function UploadPage() {
                   {file ? (
                     <>
                       <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>
-                        {file.type === 'application/pdf' ? '📄' : '🖼️'}
+                        {file.type === 'application/pdf' ? <FileText size={18} /> : <Image size={18} />}
                       </div>
                       <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#ffffff', marginBottom: '0.3rem' }}>
                         {file.name}
@@ -562,7 +563,7 @@ export default function UploadPage() {
               animationDelay: '0.15s',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.85rem' }}>
-                <span style={{ fontSize: '1rem' }}>📌</span>
+                <Pin size={18} />
                 <div className="section-label" style={{ marginBottom: 0 }}>Important Notes</div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>

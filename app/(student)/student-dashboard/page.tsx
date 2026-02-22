@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import RecentSubmissions from './components/RecentSubmissions';
+import { GraduationCap, Upload, BarChart2, FileText, RefreshCw, CheckCircle2 } from 'lucide-react';
 
 interface User {
   userId: string; name: string; email: string;
@@ -468,8 +469,8 @@ export default function StudentDashboard() {
         <aside id="sidebar" className={sideCollapsed ? 'collapsed' : ''}>
           <div className="sb-top">
             <Link href="/" className="sb-logo">
-              <div className="sb-logo-mark">🎓</div>
-              {!sideCollapsed && <span className="sb-logo-text">EvalChain</span>}
+              <div className="sb-logo-mark"><GraduationCap size={18} /></div>
+              {!sideCollapsed && <span className="sb-logo-text">GRADEX</span>}
             </Link>
             <button className="sb-collapse-btn" onClick={() => setSideCollapsed(p => !p)}>
               {sideCollapsed ? '→' : '←'}
@@ -519,7 +520,7 @@ export default function StudentDashboard() {
 
           <div id="topbar">
             <div className="topbar-breadcrumb">
-              EvalChain <span>/</span> Dashboard
+              GRADEX <span>/</span> Dashboard
             </div>
             <div className="topbar-right">
               <div className="topbar-date">
@@ -548,7 +549,7 @@ export default function StudentDashboard() {
                 <span className="greeting-outline">{user?.name?.toUpperCase()}</span>
               </div>
               <div className="greeting-meta">
-                <span className="greeting-meta-chip">👨‍🎓 Student</span>
+                <span className="greeting-meta-chip"><GraduationCap size={18} /> Student</span>
                 {user?.department && <span className="greeting-meta-chip">{user.department}</span>}
                 {user?.year       && <span className="greeting-meta-chip">Year {user.year}</span>}
                 {user?.division   && <span className="greeting-meta-chip">Div {user.division}</span>}
@@ -612,11 +613,11 @@ export default function StudentDashboard() {
               <div className="panel-hdr">Quick Actions</div>
               <div className="actions-grid">
                 {[
-                  { href:'/upload',     icon:'📤', name:'Upload',     desc:'Submit sheet' },
-                  { href:'/results',    icon:'📊', name:'Results',    desc:'View marks',
+                  { href:'/upload',     icon:<Upload size={18} />,   name:'Upload',     desc:'Submit sheet' },
+                  { href:'/results',    icon:<BarChart2 size={18} />, name:'Results',    desc:'View marks',
                     badge: stats?.evaluatedSubmissions ? `${stats.evaluatedSubmissions} ready` : undefined },
-                  { href:'/grievances', icon:'📝', name:'Grievances', desc:'Re-evaluation' },
-                  { href:'/profile',    icon:'👤', name:'Profile',    desc:'Your details' },
+                  { href:'/grievances', icon:<FileText size={18} />,  name:'Grievances', desc:'Re-evaluation' },
+                  { href:'/profile',    icon:'👤',                    name:'Profile',    desc:'Your details' },
                 ].map(a => (
                   <Link key={a.href} href={a.href} className="action-tile">
                     <div className="action-tile-icon">{a.icon}</div>
@@ -657,10 +658,10 @@ export default function StudentDashboard() {
             <div className="bento-cell cell-stages">
               <div className="panel-hdr">How It Works</div>
               {[
-                { icon:'📤', title:'Submitted',  desc:'Sheet uploaded & hashed on-chain' },
-                { icon:'👤', title:'Assigned',   desc:'Anonymous evaluator assigned' },
-                { icon:'🔄', title:'Evaluating', desc:'Questions marked live' },
-                { icon:'✅', title:'Completed',  desc:'Result available, hash sealed' },
+                { icon:<Upload size={18} />,      title:'Submitted',  desc:'Sheet uploaded & hashed on-chain' },
+                { icon:'👤',                      title:'Assigned',   desc:'Anonymous evaluator assigned' },
+                { icon:<RefreshCw size={18} />,   title:'Evaluating', desc:'Questions marked live' },
+                { icon:<CheckCircle2 size={18} />, title:'Completed',  desc:'Result available, hash sealed' },
               ].map(s => (
                 <div key={s.title} className="stage-row">
                   <div className="stage-icon">{s.icon}</div>

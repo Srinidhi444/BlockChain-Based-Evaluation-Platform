@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { Link as LinkIcon, CheckCircle2, AlertTriangle, XCircle, BarChart2, FileText, RefreshCw } from 'lucide-react';
 
 interface Submission {
   _id: string; submissionId: string; testId: string;
@@ -96,7 +97,7 @@ function BlockchainVerifyButton({
       onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.1)')}
       onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
     >
-      🔗 Verify on Blockchain
+      <LinkIcon size={18} /> Verify on Blockchain
     </button>
   );
 
@@ -120,7 +121,7 @@ function BlockchainVerifyButton({
         fontSize: '0.78rem', fontWeight: 700, color: 'rgba(74,222,128,1)',
         cursor: 'none',
       }}>
-        ✅ Verified on Blockchain
+        <CheckCircle2 size={18} /> Verified on Blockchain
       </div>
       {tooltipVisible && (
         <div style={{
@@ -130,7 +131,7 @@ function BlockchainVerifyButton({
           boxShadow: '0 12px 40px rgba(0,0,0,0.7)',
         }}>
           <p style={{ fontSize: '0.78rem', fontWeight: 800, color: 'rgba(74,222,128,1)', marginBottom: '0.75rem' }}>
-            ✅ Hashes Match — Evaluation Untampered
+            <CheckCircle2 size={18} /> Hashes Match — Evaluation Untampered
           </p>
           <div style={{ marginBottom: '0.6rem' }}>
             <p style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.3)', marginBottom: '0.25rem' }}>
@@ -166,7 +167,7 @@ function BlockchainVerifyButton({
         fontSize: '0.78rem', fontWeight: 700, color: 'rgba(252,165,165,1)',
         animation: 'pulse 1.5s ease infinite', cursor: 'none',
       }}>
-        ⚠️ Tampered!
+        <AlertTriangle size={18} /> Tampered!
       </div>
       {tooltipVisible && (
         <div style={{
@@ -176,7 +177,7 @@ function BlockchainVerifyButton({
           boxShadow: '0 12px 40px rgba(0,0,0,0.7)',
         }}>
           <p style={{ fontSize: '0.78rem', fontWeight: 800, color: 'rgba(252,165,165,1)', marginBottom: '0.75rem' }}>
-            ⚠️ Hash Mismatch — Evaluation May Be Tampered
+            <AlertTriangle size={18} /> Hash Mismatch — Evaluation May Be Tampered
           </p>
           <div style={{ marginBottom: '0.6rem' }}>
             <p style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.3)', marginBottom: '0.25rem' }}>
@@ -207,7 +208,7 @@ function BlockchainVerifyButton({
 
   return (
     <div title={message} style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', padding: '0.45rem 0.9rem', borderRadius: 9, background: 'rgba(249,115,22,0.1)', border: '1px solid rgba(249,115,22,0.3)', fontSize: '0.78rem', fontWeight: 700, color: 'rgba(253,186,116,1)' }}>
-      ❌ Verify Failed
+      <XCircle size={18} /> Verify Failed
     </div>
   );
 }
@@ -248,7 +249,7 @@ function FileHashVerifyButton({
       onMouseLeave={() => setTooltipVisible(false)}
     >
       <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.75rem', borderRadius: 10, background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', fontSize: '0.85rem', fontWeight: 700, color: 'rgba(74,222,128,1)', cursor: 'none' }}>
-        ✅ File Integrity Verified
+        <CheckCircle2 size={18} /> File Integrity Verified
       </div>
       {tooltipVisible && (
         <div style={{
@@ -258,7 +259,7 @@ function FileHashVerifyButton({
           boxShadow: '0 12px 40px rgba(0,0,0,0.7)',
         }}>
           <p style={{ fontSize: '0.78rem', fontWeight: 800, color: 'rgba(74,222,128,1)', marginBottom: '0.75rem' }}>
-            ✅ File Hashes Match — Untampered
+            <CheckCircle2 size={18} /> File Hashes Match — Untampered
           </p>
           <div style={{ marginBottom: '0.6rem' }}>
             <p style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.3)', marginBottom: '0.25rem' }}>Recomputed Hash</p>
@@ -280,7 +281,7 @@ function FileHashVerifyButton({
       onMouseLeave={() => setTooltipVisible(false)}
     >
       <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.75rem', borderRadius: 10, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', fontSize: '0.85rem', fontWeight: 700, color: 'rgba(252,165,165,1)', animation: 'pulse 1.5s ease infinite', cursor: 'none' }}>
-        ⚠️ File Has Been Tampered!
+        <AlertTriangle size={18} /> File Has Been Tampered!
       </div>
       {tooltipVisible && (
         <div style={{
@@ -290,7 +291,7 @@ function FileHashVerifyButton({
           boxShadow: '0 12px 40px rgba(0,0,0,0.7)',
         }}>
           <p style={{ fontSize: '0.78rem', fontWeight: 800, color: 'rgba(252,165,165,1)', marginBottom: '0.75rem' }}>
-            ⚠️ File Hash Mismatch — File May Be Tampered
+            <AlertTriangle size={18} /> File Hash Mismatch — File May Be Tampered
           </p>
           <div style={{ marginBottom: '0.6rem' }}>
             <p style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.3)', marginBottom: '0.25rem' }}>Recomputed from File</p>
@@ -313,7 +314,7 @@ function FileHashVerifyButton({
 
   return (
     <div title={message} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.75rem', borderRadius: 10, background: 'rgba(249,115,22,0.09)', border: '1px solid rgba(249,115,22,0.25)', fontSize: '0.85rem', fontWeight: 700, color: 'rgba(253,186,116,1)' }}>
-      ❌ File Verification Failed
+      <XCircle size={18} /> File Verification Failed
     </div>
   );
 }
@@ -504,7 +505,7 @@ export default function ResultsPage() {
             Dashboard
           </Link>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.78rem', color: 'rgba(255,255,255,0.28)', fontWeight: 500 }}>
-            EvalChain <span style={{ color: 'rgba(255,255,255,0.18)' }}>/</span>
+            GRADEX <span style={{ color: 'rgba(255,255,255,0.18)' }}>/</span>
             <span style={{ color: 'rgba(255,255,255,0.55)' }}>Results</span>
           </div>
           <div style={{ width: 80 }} />
@@ -577,7 +578,7 @@ export default function ResultsPage() {
           <div>
             {!selectedSubmission ? (
               <div className="fade-up" style={{ background: '#090909', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: '5rem 2rem', textAlign: 'center' }}>
-                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📊</div>
+                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}><BarChart2 size={18} /></div>
                 <p style={{ fontSize: '0.95rem', fontWeight: 600, color: 'rgba(255,255,255,0.4)' }}>Select a submission to view results</p>
               </div>
 
@@ -597,7 +598,7 @@ export default function ResultsPage() {
                     <div className="fade-up" style={{ background: '#090909', border: `1px solid ${gb.border}`, borderRadius: 14, padding: '1.25rem 1.4rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem' }}>
-                          <span style={{ fontSize: '1rem' }}>📝</span>
+                          <FileText size={18} />
                           <span style={{ fontSize: '0.95rem', fontWeight: 800, color: '#ffffff' }}>Grievance Filed</span>
                         </div>
                         <div style={{ fontSize: '0.8rem', fontWeight: 500, color: 'rgba(255,255,255,0.45)' }}>
@@ -618,8 +619,8 @@ export default function ResultsPage() {
                 {reevaluation && (
                   <div className="fade-up" style={{ background: '#090909', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 14, padding: '1.4rem', position: 'relative', overflow: 'hidden' }}>
                     <div style={{ position: 'absolute', top: -30, right: -30, width: 100, height: 100, borderRadius: '50%', background: 'rgba(167,139,250,0.1)', filter: 'blur(30px)', pointerEvents: 'none' }} />
-                    <div style={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: 'rgba(216,180,254,0.85)', marginBottom: '1rem' }}>
-                      🔄 Re-evaluation Results
+                    <div style={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: 'rgba(216,180,254,0.85)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <RefreshCw size={18} /> Re-evaluation Results
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '0.75rem', marginBottom: '1.1rem' }}>
                       {[
@@ -677,7 +678,7 @@ export default function ResultsPage() {
                               onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.1)')}
                               onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
                             >
-                              📝 File Grievance
+                              <FileText size={18} /> File Grievance
                             </Link>
                           )}
                         </div>
@@ -790,7 +791,7 @@ export default function ResultsPage() {
                       onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.09)')}
                       onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
                     >
-                      📄 View Answer Sheet
+                      <FileText size={18} /> View Answer Sheet
                     </a>
                     <div style={{ flex: 1, minWidth: 160 }}>
                       <FileHashVerifyButton verification={fileHashVerification} onVerify={handleVerifyFileHash} />
@@ -801,7 +802,7 @@ export default function ResultsPage() {
               </div>
             ) : (
               <div className="fade-up" style={{ background: '#090909', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 14, padding: '5rem 2rem', textAlign: 'center' }}>
-                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>❌</div>
+                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}><XCircle size={18} /></div>
                 <p style={{ fontSize: '0.92rem', fontWeight: 600, color: 'rgba(252,165,165,0.9)' }}>
                   {error || 'Failed to load evaluation'}
                 </p>

@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { ClipboardList, AlertTriangle, CheckCircle2 } from 'lucide-react';
 
 interface Question {
   questionNumber: number; marks: number; description: string;
@@ -174,7 +175,7 @@ export default function CreateTestPage() {
         }}>
           <NavBackLink href="/dashboard" label="Dashboard" />
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.78rem', color: 'rgba(255,255,255,0.28)', fontWeight: 500 }}>
-            EvalChain <span style={{ color: 'rgba(255,255,255,0.18)' }}>/</span>
+            GRADEX <span style={{ color: 'rgba(255,255,255,0.18)' }}>/</span>
             <span style={{ color: 'rgba(255,255,255,0.55)' }}>Create Test</span>
           </div>
           <div style={{ width: 100 }} />
@@ -198,7 +199,7 @@ export default function CreateTestPage() {
 
             {/* ── Section 1: Basic Info ── */}
             <div className="fade-up2" style={{ background: '#090909', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: '1.5rem', marginBottom: '1rem' }}>
-              <SectionLabel icon="📋">Test Details</SectionLabel>
+              <SectionLabel icon={<ClipboardList size={18} />}>Test Details</SectionLabel>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
 
@@ -290,13 +291,13 @@ export default function CreateTestPage() {
             {/* ── Error / Success ── */}
             {error && (
               <div style={{ marginBottom: '1rem', padding: '0.85rem 1rem', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, display: 'flex', alignItems: 'flex-start', gap: '0.55rem' }}>
-                <span style={{ flexShrink: 0 }}>⚠️</span>
+                <span style={{ flexShrink: 0 }}><AlertTriangle size={18} /></span>
                 <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'rgba(252,165,165,0.95)' }}>{error}</p>
               </div>
             )}
             {success && (
               <div style={{ marginBottom: '1rem', padding: '0.85rem 1rem', background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.25)', borderRadius: 10, display: 'flex', alignItems: 'flex-start', gap: '0.55rem' }}>
-                <span style={{ flexShrink: 0 }}>✅</span>
+                <span style={{ flexShrink: 0 }}><CheckCircle2 size={18} /></span>
                 <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'rgba(74,222,128,0.95)' }}>{success}</p>
               </div>
             )}
@@ -329,7 +330,7 @@ function NavBackLink({ href, label }: { href: string; label: string }) {
   );
 }
 
-function SectionLabel({ icon, children, noMargin }: { icon: string; children: React.ReactNode; noMargin?: boolean }) {
+function SectionLabel({ icon, children, noMargin }: { icon: React.ReactNode; children: React.ReactNode; noMargin?: boolean }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: noMargin ? 0 : '1.1rem' }}>
       <span style={{ fontSize: '1rem' }}>{icon}</span>

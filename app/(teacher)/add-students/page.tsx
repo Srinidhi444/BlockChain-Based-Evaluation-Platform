@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { AlertTriangle, CheckCircle2, Key, Mail } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -192,7 +193,7 @@ export default function AddStudentsPage() {
         <nav style={{ height: 52, background: 'rgba(5,5,5,0.92)', borderBottom: '1px solid rgba(255,255,255,0.07)', backdropFilter: 'blur(20px)', display: 'flex', alignItems: 'center', padding: '0 1.75rem', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50 }}>
           <NavBack href="/dashboard" label="Dashboard" />
           <div style={{ fontSize: '0.78rem', fontWeight: 500, color: 'rgba(255,255,255,0.28)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            EvalChain <span style={{ color: 'rgba(255,255,255,0.18)' }}>/</span>
+            GRADEX <span style={{ color: 'rgba(255,255,255,0.18)' }}>/</span>
             <span style={{ color: 'rgba(255,255,255,0.55)' }}>Add Students</span>
           </div>
           <div style={{ width: 90 }} />
@@ -257,7 +258,7 @@ export default function AddStudentsPage() {
                 {/* Error */}
                 {error && (
                   <div style={{ padding: '0.8rem 1rem', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 9, display: 'flex', gap: '0.5rem' }}>
-                    <span style={{ flexShrink: 0 }}>⚠️</span>
+                    <span style={{ flexShrink: 0 }}><AlertTriangle size={18} /></span>
                     <p style={{ fontSize: '0.83rem', fontWeight: 600, color: 'rgba(252,165,165,0.95)' }}>{error}</p>
                   </div>
                 )}
@@ -265,7 +266,7 @@ export default function AddStudentsPage() {
                 {/* Success */}
                 {success && (
                   <div style={{ padding: '0.8rem 1rem', background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.25)', borderRadius: 9, display: 'flex', gap: '0.5rem' }}>
-                    <span style={{ flexShrink: 0 }}>✅</span>
+                    <span style={{ flexShrink: 0 }}><CheckCircle2 size={18} /></span>
                     <p style={{ fontSize: '0.83rem', fontWeight: 600, color: 'rgba(74,222,128,0.95)' }}>{success}</p>
                   </div>
                 )}
@@ -311,8 +312,8 @@ export default function AddStudentsPage() {
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
                     {[
-                      { icon: '🔑', text: 'A unique User ID and password will be generated' },
-                      { icon: '📧', text: 'Credentials will be sent to the student\'s email' },
+                      { icon: <Key size={18} />, text: 'A unique User ID and password will be generated' },
+                      { icon: <Mail size={18} />, text: 'Credentials will be sent to the student\'s email' },
                       { icon: '👤', text: 'Student can login immediately using their credentials' },
                       { icon: '🔒', text: 'Student should change their password on first login' },
                     ].map((item, i) => (
@@ -334,7 +335,7 @@ export default function AddStudentsPage() {
                   {/* Header */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.1rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
-                      <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem' }}>✅</div>
+                      <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem' }}><CheckCircle2 size={18} /></div>
                       <span style={{ fontSize: '0.88rem', fontWeight: 800, color: 'rgba(74,222,128,0.9)' }}>Student Created!</span>
                     </div>
                     <EmailPill sent={createdStudent.emailSent} />
@@ -373,7 +374,7 @@ export default function AddStudentsPage() {
                   {!createdStudent.emailSent && (
                     <div style={{ marginTop: '0.85rem', padding: '0.75rem 0.9rem', background: 'rgba(251,191,36,0.07)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: 9 }}>
                       <p style={{ fontSize: '0.78rem', fontWeight: 600, color: 'rgba(253,224,71,0.85)', lineHeight: 1.5 }}>
-                        <strong>⚠️ Note:</strong> Email could not be sent. Please share credentials with the student manually.
+                        <strong><AlertTriangle size={18} /> Note:</strong> Email could not be sent. Please share credentials with the student manually.
                       </p>
                     </div>
                   )}
@@ -405,7 +406,7 @@ function SubmitButton({ loading }: { loading: boolean }) {
 function EmailPill({ sent }: { sent: boolean }) {
   return (
     <div style={{ padding: '0.22rem 0.7rem', borderRadius: 100, background: sent ? 'rgba(34,197,94,0.1)' : 'rgba(251,191,36,0.1)', border: `1px solid ${sent ? 'rgba(34,197,94,0.3)' : 'rgba(251,191,36,0.3)'}`, fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.08em', color: sent ? 'rgba(74,222,128,0.9)' : 'rgba(253,224,71,0.9)', textTransform: 'uppercase' as const, whiteSpace: 'nowrap' as const }}>
-      {sent ? '📧 Email Sent' : '⚠️ Email Failed'}
+      {sent ? <><Mail size={18} /> Email Sent</> : <><AlertTriangle size={18} /> Email Failed</>}
     </div>
   );
 }

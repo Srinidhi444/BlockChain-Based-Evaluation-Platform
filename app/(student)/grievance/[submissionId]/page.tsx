@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
+import { XCircle, RefreshCw, AlertTriangle, CheckCircle2, Info } from 'lucide-react';
 
 interface Evaluation {
   questionMarks: Array<{
@@ -141,7 +142,7 @@ export default function FileGrievancePage() {
       <DashCursor />
       <div style={{ minHeight: '100vh', background: '#050505', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
         <div style={{ background: '#090909', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 16, padding: '3rem 2rem', textAlign: 'center', maxWidth: 360 }}>
-          <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>❌</div>
+          <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}><XCircle size={18} /></div>
           <p style={{ fontSize: '0.95rem', fontWeight: 700, color: 'rgba(252,165,165,0.9)', marginBottom: '1.5rem' }}>
             Evaluation not found
           </p>
@@ -252,7 +253,7 @@ export default function FileGrievancePage() {
           </Link>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.78rem', color: 'rgba(255,255,255,0.28)', fontWeight: 500 }}>
-            EvalChain
+            GRADEX
             <span style={{ color: 'rgba(255,255,255,0.18)' }}>/</span>
             <span style={{ color: 'rgba(255,255,255,0.55)' }}>File Grievance</span>
           </div>
@@ -393,7 +394,7 @@ export default function FileGrievancePage() {
                     {formData.grievanceType && (
                       <div style={{ marginTop: '0.45rem', padding: '0.55rem 0.75rem', borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', fontSize: '0.76rem', fontWeight: 500, color: 'rgba(255,255,255,0.4)', lineHeight: 1.5 }}>
                         {formData.grievanceType === 'calculation_error'
-                          ? '🔁 The same teacher will review for calculation mistakes'
+                          ? <><RefreshCw size={18} /> The same teacher will review for calculation mistakes</>
                           : '👤 A different teacher will re-evaluate your answer sheet'}
                       </div>
                     )}
@@ -459,7 +460,7 @@ export default function FileGrievancePage() {
                   {/* Error */}
                   {error && (
                     <div style={{ padding: '0.85rem 1rem', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, display: 'flex', alignItems: 'flex-start', gap: '0.55rem' }}>
-                      <span style={{ flexShrink: 0 }}>⚠️</span>
+                      <AlertTriangle size={18} style={{ flexShrink: 0 }} />
                       <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'rgba(252,165,165,0.95)' }}>{error}</p>
                     </div>
                   )}
@@ -467,7 +468,7 @@ export default function FileGrievancePage() {
                   {/* Success */}
                   {success && (
                     <div style={{ padding: '0.85rem 1rem', background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.25)', borderRadius: 10, display: 'flex', alignItems: 'flex-start', gap: '0.55rem' }}>
-                      <span style={{ flexShrink: 0 }}>✅</span>
+                      <CheckCircle2 size={18} style={{ flexShrink: 0 }} />
                       <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'rgba(74,222,128,0.95)' }}>{success}</p>
                     </div>
                   )}
@@ -502,7 +503,7 @@ export default function FileGrievancePage() {
                 borderRadius: 16, padding: '1.4rem', animationDelay: '0.12s',
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-                  <span style={{ fontSize: '1rem' }}>ℹ️</span>
+                  <Info size={18} />
                   <div className="section-label" style={{ marginBottom: 0 }}>Important Information</div>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>

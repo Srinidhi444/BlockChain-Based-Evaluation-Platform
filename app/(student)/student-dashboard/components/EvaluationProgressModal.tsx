@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { FileText, Clock, Target, PartyPopper, Timer, AlertTriangle } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────
 interface TimelineEvent {
@@ -187,7 +188,7 @@ function StageBanner({ stage, progress, test }: {
                 marginBottom: '1rem',
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             }}>
-                📄 {test.title}{test.subject ? ` · ${test.subject}` : ''}
+                <FileText size={18} /> {test.title}{test.subject ? ` · ${test.subject}` : ''}
             </div>
 
             {/* Progress bar */}
@@ -218,13 +219,13 @@ function StatsRow({ data }: { data: ProgressData }) {
     const stats = [
         {
             label: 'Questions', value: data.progress.totalQuestions > 0
-                ? `${data.progress.questionsMarked}/${data.progress.totalQuestions}` : '—', icon: '📝'
+                ? `${data.progress.questionsMarked}/${data.progress.totalQuestions}` : '—', icon: <FileText size={18} />
         },
         { label: 'Evaluator', value: data.teacher?.name || 'Pending', icon: '👤' },
-        { label: 'Submitted', value: formatTime(data.submittedAt), icon: '🕐' },
+        { label: 'Submitted', value: formatTime(data.submittedAt), icon: <Clock size={18} /> },
         {
             label: 'Result', value: data.result.available
-                ? `${data.result.totalMarks}/${data.result.maxMarks}` : 'Pending', icon: '🎯'
+                ? `${data.result.totalMarks}/${data.result.maxMarks}` : 'Pending', icon: <Target size={18} />
         },
     ];
 
@@ -458,7 +459,7 @@ function TimelineItem({ event, isLast }: { event: TimelineEvent; isLast: boolean
                                                     /* ↑↑ Boosted time text */
                                                     fontSize: '0.78rem', fontWeight: 700, color: tc.text,
                                                 }}>
-                                                    ⏱ {secondsToReadable(event.timeSpent)}
+                                                    <Timer size={18} /> {secondsToReadable(event.timeSpent)}
                                                 </div>
                                                 {event.timestamp && (
                                                     <div style={{
@@ -521,7 +522,7 @@ function ResultCard({ result, maxMarks }: { result: ProgressData['result']; maxM
                 color: 'rgba(74,222,128,0.85)', marginBottom: '0.85rem',
                 display: 'flex', alignItems: 'center', gap: '0.4rem',
             }}>
-                🎉 Final Result
+                <PartyPopper size={18} /> Final Result
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -937,7 +938,7 @@ export default function EvaluationProgressModal({ submissionId, onClose }: Props
                                         borderRadius: 12,
                                         display: 'flex', alignItems: 'flex-start', gap: '0.75rem',
                                     }}>
-                                        <span style={{ fontSize: '1.1rem', flexShrink: 0 }}>⚠️</span>
+                                        <AlertTriangle size={18} style={{ flexShrink: 0 }} />
                                         <div>
                                             {/* ↑↑ Boosted grievance title */}
                                             <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'rgba(253,186,116,1)', marginBottom: '0.25rem' }}>

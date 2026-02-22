@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { GraduationCap, UserCog, Shield, Link2, Eye, BarChart2, ScanSearch, FileText, Target, Timer, Search, Scale, Clock, Cloud, Monitor, Upload, PenLine, Bot, Package, RefreshCw } from 'lucide-react';
 
 export default function HomePage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1041,13 +1042,13 @@ export default function HomePage() {
             <FillTitle lines={['EVERYTHING YOUR', 'INSTITUTION NEEDS']} outlineIdx={[1]} />
             <div className="svc-grid">
               {[
-                { icon:'👨‍🎓', badge:'Student', num:'01', title:'Student Portal',
+                { icon:<GraduationCap size={20} />, badge:'Student', num:'01', title:'Student Portal',
                   desc:'Upload answer sheet PDFs securely. Track evaluation in real-time with a timestamped live timeline. View per-question marks and final results instantly.',
                   items:['Secure PDF Upload','Live Evaluation Progress','Per-question Breakdown','Grievance & Re-evaluation'] },
-                { icon:'👩‍🏫', badge:'Evaluator', num:'02', title:'Teacher Dashboard',
+                { icon:<UserCog size={20} />, badge:'Evaluator', num:'02', title:'Teacher Dashboard',
                   desc:'Evaluate anonymised submissions — no student names, no bias. Mark each question with scores and feedback. Every click logged for full accountability.',
                   items:['Anonymous Assignment View','Question-by-question Scoring','Time-tracked Audit Log','Draft & Final Submission'] },
-                { icon:'🛡️', badge:'Admin', num:'03', title:'Admin Intelligence',
+                { icon:<Shield size={20} />, badge:'Admin', num:'03', title:'Admin Intelligence',
                   desc:'Full audit dashboard with AI-powered anomaly detection. Chat with MCP agent to surface bias patterns, grievance trends, and outlier evaluations instantly.',
                   items:['AI MCP Chat Agent','Bias & Anomaly Detection','Full Audit Trail View','Re-evaluation Management'] },
               ].map(s => (
@@ -1073,12 +1074,12 @@ export default function HomePage() {
             <FillTitle lines={['BUILT FOR TRUST,', 'SPEED & SCALE']} outlineIdx={[1]} />
             <div className="feat-grid">
               {[
-                { icon:'⛓️', title:'Blockchain Hashing', desc:'Every submission and result is hashed on-chain. blockchainTxHash makes tampering mathematically impossible and permanently auditable.' },
-                { icon:'🤖', title:'AI MCP Agent', desc:'Flask-powered LLM agent with direct MongoDB access. Detects bias, anomalies, and evaluation outliers on demand with natural language queries.' },
-                { icon:'👁️', title:'Anonymous Grading', desc:"Teacher never sees the student's identity. Anonymised submission IDs ensure completely unbiased, fair evaluation at all times." },
-                { icon:'📊', title:'Live Progress', desc:'Students watch their paper move through Submitted → Assigned → Evaluating → Completed in real time with event timestamps.' },
-                { icon:'🕵️', title:'Full Audit Trail', desc:'Every teacher action — question opened, score given, time spent — is logged immutably to audit_logs. Nothing is hidden.' },
-                { icon:'📝', title:'Grievance System', desc:'Students raise re-evaluation requests in one click. Admins track outcomes and mark changes with full historical accountability.' },
+                { icon:<Link2 size={20} />, title:'Blockchain Hashing', desc:'Every submission and result is hashed on-chain. blockchainTxHash makes tampering mathematically impossible and permanently auditable.' },
+                { icon:<Bot size={16} />, title:'AI MCP Agent', desc:'Flask-powered LLM agent with direct MongoDB access. Detects bias, anomalies, and evaluation outliers on demand with natural language queries.' },
+                { icon:<Eye size={20} />, title:'Anonymous Grading', desc:"Teacher never sees the student's identity. Anonymised submission IDs ensure completely unbiased, fair evaluation at all times." },
+                { icon:<BarChart2 size={20} />, title:'Live Progress', desc:'Students watch their paper move through Submitted → Assigned → Evaluating → Completed in real time with event timestamps.' },
+                { icon:<ScanSearch size={20} />, title:'Full Audit Trail', desc:'Every teacher action — question opened, score given, time spent — is logged immutably to audit_logs. Nothing is hidden.' },
+                { icon:<FileText size={20} />, title:'Grievance System', desc:'Students raise re-evaluation requests in one click. Admins track outcomes and mark changes with full historical accountability.' },
               ].map(f => (
                 <div key={f.title} className="feature-card">
                   <div className="feat-icon">{f.icon}</div>
@@ -1101,10 +1102,10 @@ export default function HomePage() {
               </p>
               <div>
                 {[
-                  ['🎯','Eliminates Favouritism','Anonymous IDs mean teachers evaluate work, not names.'],
-                  ['⏱️','Cuts Evaluation Time','AI-assisted pre-scoring reduces grading from days to hours.'],
-                  ['🔍','Full Transparency','Students and admins see exactly what happened, when, and who.'],
-                  ['⚖️','Built-in Dispute Resolution','Grievance workflows with re-evaluation tracking built in.'],
+                  [<Target size={16} />,'Eliminates Favouritism','Anonymous IDs mean teachers evaluate work, not names.'],
+                  [<Timer size={16} />,'Cuts Evaluation Time','AI-assisted pre-scoring reduces grading from days to hours.'],
+                  [<Search size={16} />,'Full Transparency','Students and admins see exactly what happened, when, and who.'],
+                  [<Scale size={16} />,'Built-in Dispute Resolution','Grievance workflows with re-evaluation tracking built in.'],
                 ].map(([icon,title,sub]) => (
                   <div key={String(title)} className="imp-item">
                     <div className="imp-icon">{icon}</div>
@@ -1117,7 +1118,7 @@ export default function HomePage() {
             <div id="imp-right">
               <div className="mock-card">
                 <div className="mock-head">
-                  <div className="mock-av">📄</div>
+                  <div className="mock-av"><FileText size={16} /></div>
                   <div>
                     <div className="mock-sid">Submission #0X5564</div>
                     <div className="mock-sub">Mathematics — Sem VI</div>
@@ -1149,13 +1150,13 @@ export default function HomePage() {
             <FillTitle lines={['THE EXAM SYSTEM,', 'REIMAGINED']} outlineIdx={[1]} />
             <div className="ba-grid">
               <div id="before-card" className="ba-card">
-                <div className="ba-label">📦 Before</div>
+                <div className="ba-label"><Package size={16} /> Before</div>
                 {[
                   ['📮','Physical Answer Sheets','Days of transit time, risk of loss in mail.'],
                   ['🤝','Known Student–Teacher Relations','Bias inevitable, grades inherently unfair.'],
                   ['📁','Results in Excel Sheets','Easily altered, zero audit trail.'],
                   ['📬','Grievances via Written Letters','Weeks to resolve, no tracking.'],
-                  ['🕐','Manual Mark Tallying','Error-prone, extremely time-consuming.'],
+                  [<Clock size={16} />,'Manual Mark Tallying','Error-prone, extremely time-consuming.'],
                 ].map(([icon,title,sub],i) => (
                   <div key={i} className="ba-item ba-before-item">
                     <span className="ba-item-ic">{icon}</span>
@@ -1164,13 +1165,13 @@ export default function HomePage() {
                 ))}
               </div>
               <div id="after-card" className="ba-card">
-                <div className="ba-label">✨ Now</div>
+                <div className="ba-label"><RefreshCw size={16} /> Now</div>
                 {[
-                  ['☁️','Instant PDF Cloud Upload','Available to evaluator in seconds.'],
-                  ['🎭','Full Anonymisation via IDs','Zero bias, mathematically guaranteed.'],
-                  ['⛓️','Results Hashed on Blockchain','blockchainTxHash — immutable forever.'],
-                  ['🖥️','One-click Grievance Portal','Tracked, timestamped, resolved in hours.'],
-                  ['🤖','AI-Assisted Scoring','Faster, consistent, auditable marks.'],
+                  [<Cloud size={16} />,'Instant PDF Cloud Upload','Available to evaluator in seconds.'],
+                  [<Eye size={16} />,'Full Anonymisation via IDs','Zero bias, mathematically guaranteed.'],
+                  [<Link2 size={20} />,'Results Hashed on Blockchain','blockchainTxHash — immutable forever.'],
+                  [<Monitor size={16} />,'One-click Grievance Portal','Tracked, timestamped, resolved in hours.'],
+                  [<Bot size={16} />,'AI-Assisted Scoring','Faster, consistent, auditable marks.'],
                 ].map(([icon,title,sub],i) => (
                   <div key={i} className="ba-item ba-after-item">
                     <span className="ba-item-ic">{icon}</span>
@@ -1189,12 +1190,12 @@ export default function HomePage() {
             <FillTitle lines={['HOW', 'IT WORKS']} outlineIdx={[1]} />
             <div className="tl-grid">
               {[
-                { n:'01', icon:'📤', title:'Student Uploads PDF', desc:'Student logs in, uploads answer sheet PDF. System creates a submission with a unique anonymous ID and initial blockchainTxHash immediately.' },
-                { n:'02', icon:'🎭', title:'Anonymous Assignment', desc:'System assigns the anonymised submission to an available teacher. Student identity completely hidden. Audit log entry created on assignment.' },
-                { n:'03', icon:'✍️', title:'Question Evaluation', desc:'Teacher marks each question with a score and comment. Every action timestamps an audit_log entry — including exact time spent per question.' },
-                { n:'04', icon:'🔒', title:'Result Sealed on Chain', desc:'On final submit, isDraft=false, evaluatedAt is stamped, evaluationHash written to blockchain. Result is now permanently immutable.' },
-                { n:'05', icon:'📊', title:'Student Views Results', desc:'Student sees live timeline, per-question marks, and total score. Can raise a grievance in a single click if outcome is disputed.' },
-                { n:'06', icon:'🤖', title:'Admin AI Oversight', desc:'Admin chats with the MCP AI agent to detect bias, anomalies, or unusual scoring patterns across all evaluations institution-wide.' },
+                { n:'01', icon:<Upload size={16} />, title:'Student Uploads PDF', desc:'Student logs in, uploads answer sheet PDF. System creates a submission with a unique anonymous ID and initial blockchainTxHash immediately.' },
+                { n:'02', icon:<Eye size={16} />, title:'Anonymous Assignment', desc:'System assigns the anonymised submission to an available teacher. Student identity completely hidden. Audit log entry created on assignment.' },
+                { n:'03', icon:<PenLine size={16} />, title:'Question Evaluation', desc:'Teacher marks each question with a score and comment. Every action timestamps an audit_log entry — including exact time spent per question.' },
+                { n:'04', icon:<Shield size={16} />, title:'Result Sealed on Chain', desc:'On final submit, isDraft=false, evaluatedAt is stamped, evaluationHash written to blockchain. Result is now permanently immutable.' },
+                { n:'05', icon:<BarChart2 size={20} />, title:'Student Views Results', desc:'Student sees live timeline, per-question marks, and total score. Can raise a grievance in a single click if outcome is disputed.' },
+                { n:'06', icon:<Bot size={16} />, title:'Admin AI Oversight', desc:'Admin chats with the MCP AI agent to detect bias, anomalies, or unusual scoring patterns across all evaluations institution-wide.' },
               ].map(s => (
                 <div key={s.n} className="timeline-step">
                   <div className="step-num">{s.n}</div>

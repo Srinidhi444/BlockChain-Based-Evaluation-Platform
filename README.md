@@ -732,39 +732,7 @@ node scripts/createUsers.js     # General-purpose user creation
 cd mcp && python app.py         # Start Flask AI server (port 5000)
 ```
 
----
 
-## Deployment
-
-### Next.js App — Vercel (Recommended)
-
-1. Push the repository to GitHub
-2. Import the repo in [Vercel](https://vercel.com)
-3. Add all environment variables from `.env.local` in the Vercel project settings
-4. Deploy — Vercel auto-detects Next.js and builds correctly
-
-### MCP Flask Server
-
-Deploy the `mcp/` directory to any Python-capable host:
-
-- **Railway / Render / Fly.io** — drag-and-drop Python deployments
-- **Docker**:
-
-```dockerfile
-FROM python:3.11-slim
-WORKDIR /app
-COPY mcp/ .
-RUN pip install flask flask-cors pymongo groq
-CMD ["python", "app.py"]
-```
-
-After deploying the Flask server, update the MCP URL in your Next.js environment variable (the default is `http://localhost:5000`).
-
-### MongoDB
-
-Use **MongoDB Atlas** for production. The free M0 cluster is sufficient for small institutions. Enable IP allowlist for your deployed app's IP or use `0.0.0.0/0` for serverless deployments.
-
----
 
 ## Security Considerations
 
@@ -780,4 +748,6 @@ Use **MongoDB Atlas** for production. The free M0 cluster is sufficient for smal
 
 ## License
 
-This project was built for the TECHATHON hackathon. All rights reserved.
+Copyright (c) 2026 TECHATHON Contributors. All rights reserved.
+
+This project and its source code are the intellectual property of the contributors who built it. Unauthorized copying, distribution, or use without explicit permission from the contributors is prohibited.

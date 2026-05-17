@@ -1,4 +1,4 @@
-# EduVerify — AI-Powered Answer Sheet Evaluation & Bias Detection Platform
+# Gradex — AI-Powered Answer Sheet Evaluation & Bias Detection Platform
 
 An advanced exam evaluation management system built for educational institutions to digitize, audit, and ensure fairness in the answer sheet evaluation process. The platform integrates **AI-powered bias detection**, a **grievance management workflow**, and **Ethereum blockchain verification** to guarantee transparency and academic integrity.
 

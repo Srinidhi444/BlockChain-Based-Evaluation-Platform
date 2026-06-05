@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useEffect, useState, useRef } from 'react';
+import { Suspense, useEffect, useState, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Link as LinkIcon, CheckCircle2, AlertTriangle, XCircle, BarChart2, FileText, RefreshCw } from 'lucide-react';
@@ -324,7 +324,7 @@ function FileHashVerifyButton({
 /* ══════════════════════════════════════════════════════════════
    MAIN PAGE
 ══════════════════════════════════════════════════════════════ */
-export default function ResultsPage() {
+ function ResultsContent() {
   const router       = useRouter();
   const searchParams = useSearchParams();
   const submissionIdParam = searchParams.get('submissionId');
@@ -815,5 +815,29 @@ export default function ResultsPage() {
         </div>
       </div>
     </>
+  );
+}
+
+
+export default function ResultsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div
+          style={{
+            minHeight: '100vh',
+            background: '#050505',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#fff',
+          }}
+        >
+          Loading results...
+        </div>
+      }
+    >
+      <ResultsContent />
+    </Suspense>
   );
 }

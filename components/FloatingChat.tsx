@@ -161,7 +161,7 @@ export default function FloatingChat() {
                     <BotIcon />
                   </div>
                   <p style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.35)", textAlign: "center", lineHeight: 1.6, maxWidth: 200 }}>
-                    Ask me about teachers,<br />submissions or audit logs.
+                   Sorry the free api tier will be exhaused so it has been disabled
                   </p>
                 </div>
               )}
@@ -209,7 +209,7 @@ export default function FloatingChat() {
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Ask something…"
-                disabled={loading}
+                disabled={true}
                 style={{ flex: 1, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "0.58rem 0.85rem", fontSize: "0.82rem", fontWeight: 500, color: "#fff", fontFamily: "inherit", outline: "none", transition: "border-color 0.2s, background 0.2s", opacity: loading ? 0.5 : 1 }}
               />
               <SendBtn onClick={sendMessage} disabled={loading || !input.trim()} />

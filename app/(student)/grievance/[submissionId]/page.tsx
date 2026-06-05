@@ -312,11 +312,11 @@ export default function FileGrievancePage() {
               </div>
 
               {/* Q-wise breakdown */}
-              <div className="fade-up" style={{
+              <div className="fade-up grievance-scrol" style={{
                 background: '#090909', border: '1px solid rgba(255,255,255,0.08)',
                 borderRadius: 16, padding: '1.4rem', animationDelay: '0.1s',
                 maxHeight: 420, overflowY: 'auto',
-              }} className="fade-up grievance-scroll">
+              }}>
                 <div className="section-label">Question-wise Marks</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                   {evaluation.questionMarks.map(q => {

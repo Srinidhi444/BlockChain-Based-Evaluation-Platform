@@ -566,6 +566,7 @@ export default function LoginPage() {
                         {[
                             { role: 'Student', val: 'ST2026001 / password123' },
                             { role: 'Teacher', val: 'TCH2026001 / password123' },
+                            { role: 'Admin', val: 'ADM2026001 / password123' },
                         ].map(c => (
                             <div key={c.role} className="creds-row">
                                 <span className="creds-role">{c.role}</span>
